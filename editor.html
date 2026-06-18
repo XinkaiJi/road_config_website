@@ -179,6 +179,7 @@ const TYPES = [
   {key:"dl_point",  name:"⑥c 行驶线-零点 point",        shape:"point",     fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"},{k:"base",label:"base distance",type:"number",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_point_${f.base}`},
   {key:"dl_connect",name:"⑥d 行驶线-连接点 connect",    shape:"point",     fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"},{k:"id1",label:"position_id1",def:"0"},{k:"id2",label:"position_id2",def:"1"}], label:f=>`drivingline_${f.name}_${f.pos}_connect_${f.id1}_${f.id2}`},
   {key:"workzone",  name:"⑧ 施工区 workzone",          shape:"polygon",   fields:[],                          label:()=>"workzone"},
+  {key:"custom",    name:"⊕ 自定义（自选形状 + 命名）",  shape:"polygon",   fields:[{k:"shape",label:"形状",type:"select",opts:["polygon","linestrip","line","rectangle","point"],def:"polygon"}], label:()=>"", shapeFrom:f=>f.shape, custom:true},
 ];
 const SHAPE_HINT = {
   polygon:  "多边形：左键依次打点，双击 / Enter 闭合（≥3 点）。Backspace 撤销上一点，Esc 取消。",
@@ -198,6 +199,7 @@ let mode = "draw";             // draw | select
 let zoom = 1, panX = 0, panY = 0;
 
 let draft = null;              // 绘制中：{shape, points, label}
+let lastCustomLabel = "";      // 自定义类型上次输入的名称
 let rectDragging = false;
 let lastImg = [0,0];
 // 选择模式拖拽
@@ -248,8 +250,12 @@ function buildParams(){
   updateHint();
 }
 function updateHint(){
-  const t=currentType(), shp=effectiveShape(), lbl=t.label(fieldVals());
-  $("drawHint").innerHTML = `将创建 <code>${lbl}</code> <span class="pill">${shp}</span><br>${SHAPE_HINT[shp]}`;
+  const t=currentType(), shp=effectiveShape();
+  if(t.custom){
+    $("drawHint").innerHTML = `自定义 <span class="pill">${shp}</span> · 绘制完成后输入名称（类似 labelme）<br>${SHAPE_HINT[shp]}`;
+    return;
+  }
+  $("drawHint").innerHTML = `将创建 <code>${t.label(fieldVals())}</code> <span class="pill">${shp}</span><br>${SHAPE_HINT[shp]}`;
 }
 
 /* ===== 模式 ===== */
@@ -355,8 +361,13 @@ function finishDraft(){
   commit(draft); draft=null; rectDragging=false;
 }
 function commit(s){
-  shapes.push(s);
   const t=currentType();
+  if(t.custom){
+    const name=prompt("输入标注名称 (label)", lastCustomLabel);
+    if(name===null || name.trim()===""){ render(); return; }   // 取消则放弃
+    s.label=name.trim(); lastCustomLabel=s.label;
+  }
+  shapes.push(s);
   if(t.inc){ const el=$("f_"+t.inc); if(el){ const v=parseInt(el.value); if(!isNaN(v)) el.value=v+1; } updateHint(); }
   selected=-1; refreshList(); render(); updateButtons();
 }

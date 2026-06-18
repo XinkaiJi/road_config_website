@@ -57,6 +57,8 @@
   `road` / `fp`（多边形或矩形）/ `length_X` / `x` / `y` / `lane_N` / `laneline_N` /
   `drivingline_{name}_{pos}_region|line|point_{base}|connect_{id1}_{id2}` / `workzone`；
   `lane_N`、`laneline_N` 编号会在每次完成后自动递增
+- **自定义标注**：选「⊕ 自定义」后自选形状（点 / 线 / 矩形 / 多边形 / 折线），
+  绘制完成后输入任意 `label`，类似 labelme 的自由标注
 - **绘制模式**（B）：左键打点，双击 / Enter 完成多边形、折线，Backspace 撤销上一点，
   Esc 取消；线段点两下自动完成；矩形按住拖动；点单击放置
 - **选择 / 编辑模式**（V）：点击选中、拖动顶点微调、拖动整体移动、`Delete` 删除、
