@@ -6,9 +6,15 @@
 载入 road config（`.json`）后，工具会在底图上渲染出车道编号、车道线、行车线里程、
 施工区、坐标轴等信息，方便核对标注是否正确，并可导出为 PNG 图。
 
+项目包含两个页面：
+
+- **Viewer**（`index.html`）— 载入并可视化已有的 road config
+- **Editor**（`editor.html`）— 在底图上直接绘制 / 编辑标注，并导出符合规范的 road config JSON
+
 ## 在线访问
 
-👉 https://xinkaiji.github.io/road_config_website/
+- Viewer 👉 https://xinkaiji.github.io/road_config_website/
+- Editor 👉 https://xinkaiji.github.io/road_config_website/editor.html
 
 无需安装、无需后端，所有解析与渲染都在本地浏览器中完成，标注文件不会上传到任何服务器。
 
@@ -19,7 +25,7 @@
 （labelme 风格的 `shapes` 结构）生成。本工具复刻了 OpenVTER 中 `visualize_config` 的绘制逻辑，
 让你不必运行 Python 脚本即可快速预览标注结果。
 
-## 功能
+## Viewer 功能
 
 - **载入方式**
   - 点击「打开 road config」选择 `.json`
@@ -40,6 +46,23 @@
   - 一键「适应窗口」/「重置视图」
 - **参数调节**：底图亮度、车道填充透明度、字号、线宽、里程间隔
 - **导出**：将当前渲染结果保存为 PNG
+
+## Editor 功能
+
+`editor.html` 用于从零创建或修改 road config，导出的 JSON 为 labelme 风格（含
+`shape_type`、`group_id` 等字段，并内嵌底图），可直接在 Viewer 或 OpenVTER 中使用。
+
+- **载入**：打开底图图片；或载入已有 `.json` 继续编辑（图片 / JSON 均支持拖拽）
+- **按规范标注**：从下拉菜单选择标注类型，编辑器自动生成正确的 `label` 与几何类型——
+  `road` / `fp`（多边形或矩形）/ `length_X` / `x` / `y` / `lane_N` / `laneline_N` /
+  `drivingline_{name}_{pos}_region|line|point_{base}|connect_{id1}_{id2}` / `workzone`；
+  `lane_N`、`laneline_N` 编号会在每次完成后自动递增
+- **绘制模式**（B）：左键打点，双击 / Enter 完成多边形、折线，Backspace 撤销上一点，
+  Esc 取消；线段点两下自动完成；矩形按住拖动；点单击放置
+- **选择 / 编辑模式**（V）：点击选中、拖动顶点微调、拖动整体移动、`Delete` 删除、
+  双击列表项重命名 label
+- **视图**：滚轮缩放、右键 / 中键平移、底图亮度调节
+- **导出**：road config `.json` 或标注后的 PNG
 
 ## road config 格式约定
 

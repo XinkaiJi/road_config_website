@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Road Config Editor · 标注编辑器</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel-2:#1c232d; --line:#2b333d;
+    --ink:#e6edf3; --ink-dim:#8b949e; --accent:#58a6ff; --accent-2:#3fb950; --danger:#f85149;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:var(--sans);background:var(--bg);color:var(--ink);
+    display:grid;grid-template-columns:330px 1fr;height:100vh;overflow:hidden;
+  }
+  aside{
+    background:var(--panel);border-right:1px solid var(--line);
+    padding:16px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+  }
+  aside h1{font-size:15px;margin:0;letter-spacing:.3px;font-weight:600}
+  aside h1 small{display:block;color:var(--ink-dim);font-weight:400;font-size:11px;margin-top:3px;font-family:var(--mono)}
+  aside h1 a{color:var(--accent);text-decoration:none;font-size:11px}
+  .group{display:flex;flex-direction:column;gap:9px}
+  .group > .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-dim);font-family:var(--mono)}
+  .file-btn,button.action{
+    appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+    padding:9px 11px;border-radius:7px;font-size:13px;cursor:pointer;text-align:center;
+    transition:border-color .12s,background .12s;font-family:var(--sans);
+  }
+  .file-btn:hover,button.action:hover{border-color:var(--accent);background:#222b36}
+  button.primary{border-color:var(--accent-2);background:#173021;color:#aff0c2}
+  button.primary:hover{background:#1d3d2b}
+  button.danger{border-color:var(--danger);color:#ffb3ad}
+  button.danger:hover{background:#3a1d1c}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  input[type=file]{display:none}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  select,input[type=text],input[type=number]{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    border-radius:6px;padding:7px 9px;font-size:13px;font-family:var(--sans);
+  }
+  select:focus,input:focus{outline:none;border-color:var(--accent)}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;color:var(--ink-dim)}
+  .mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .mode-tabs button{appearance:none;border:none;background:var(--panel-2);color:var(--ink-dim);padding:8px;font-size:13px;cursor:pointer}
+  .mode-tabs button.on{background:#1d2c40;color:var(--accent)}
+  .hint{font-size:11px;color:var(--ink-dim);line-height:1.55;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+  .hint code{font-family:var(--mono);color:var(--accent)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:4px;background:#1d2c40;color:var(--accent);margin-left:6px}
+  .divider{height:1px;background:var(--line);margin:0}
+  .slider .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+  .slider .row b{font-family:var(--mono);font-weight:500;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+  /* shapes list */
+  #list{display:flex;flex-direction:column;gap:3px;max-height:34vh;overflow-y:auto}
+  .item{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;font-size:12px;border:1px solid transparent}
+  .item:hover{background:var(--panel-2)}
+  .item.sel{background:#1d2c40;border-color:var(--accent)}
+  .item .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+  .item .nm{flex:1;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .ty{color:var(--ink-dim);font-size:10px;font-family:var(--mono)}
+  .item .del{color:var(--ink-dim);cursor:pointer;padding:0 3px;border-radius:4px}
+  .item .del:hover{color:var(--danger);background:#3a1d1c}
+  /* canvas */
+  main{position:relative;overflow:hidden;background:
+    repeating-conic-gradient(#11151b 0% 25%,#0c0f14 0% 50%) 0/22px 22px;}
+  main.panning{cursor:grabbing}
+  main.draw{cursor:crosshair}
+  #stage{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  canvas{display:block;max-width:none;box-shadow:0 0 0 1px var(--line),0 18px 50px rgba(0,0,0,.5);background:#000}
+  #empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;color:var(--ink-dim);pointer-events:none;text-align:center}
+  #empty .big{font-size:40px;opacity:.35}
+  #empty p{margin:0;font-size:13px;max-width:320px;line-height:1.6}
+  #drop-flash{position:absolute;inset:0;border:2px dashed var(--accent);background:rgba(88,166,255,.08);
+    display:none;align-items:center;justify-content:center;font-size:15px;color:var(--accent)}
+  main.dragover #drop-flash{display:flex}
+  #zoombar{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px}
+  #zoombar button{appearance:none;border:none;background:none;color:var(--ink);cursor:pointer;font-size:15px;width:24px;height:24px;border-radius:5px}
+  #zoombar button:hover{background:var(--panel-2)}
+  #zoombar span{font-family:var(--mono);min-width:46px;text-align:center;color:var(--ink-dim)}
+  #status{position:absolute;right:14px;bottom:14px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;max-width:60%}
+  #toast{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:#173021;border:1px solid var(--accent-2);
+    color:#aff0c2;padding:7px 14px;border-radius:8px;font-size:13px;display:none;z-index:10}
+</style>
+</head>
+<body>
+<aside>
+  <h1>Road Config Editor<small>标注编辑器 · 静态版</small>
+    <a href="index.html">→ 打开 Viewer</a></h1>
+
+  <div class="group">
+    <label class="file-btn" for="imgInput">① 打开底图 (image)</label>
+    <input type="file" id="imgInput" accept="image/*">
+    <label class="file-btn" for="jsonInput">② 可选：载入已有 config (.json) 继续编辑</label>
+    <input type="file" id="jsonInput" accept=".json,application/json">
+    <p class="hint">也可把图片或 .json 直接拖入右侧画布。导出的 JSON 会内嵌底图，可直接在 Viewer 中打开。</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <div class="label">模式</div>
+    <div class="mode-tabs">
+      <button id="modeDraw" class="on">✏ 绘制 (B)</button>
+      <button id="modeSelect">🖱 选择/编辑 (V)</button>
+    </div>
+  </div>
+
+  <div class="group" id="drawPanel">
+    <div class="label">标注类型</div>
+    <select id="typeSel"></select>
+    <div id="params" class="row2"></div>
+    <div class="hint" id="drawHint"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <div class="label">已标注 <span class="pill" id="cnt">0</span></div>
+    <div id="list"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <div class="slider">
+      <div class="row"><span>底图亮度</span><b id="v_bright">1.00</b></div>
+      <input type="range" id="s_bright" min="0.1" max="1" step="0.05" value="1">
+    </div>
+    <button class="action primary" id="exportBtn" disabled>导出 road config (.json)</button>
+    <div class="row2">
+      <button class="action" id="exportPng" disabled>导出 PNG</button>
+      <button class="action danger" id="clearBtn" disabled>清空标注</button>
+    </div>
+  </div>
+</aside>
+
+<main id="main">
+  <div id="drop-flash">松开以载入</div>
+  <div id="stage"><canvas id="cv" width="900" height="500"></canvas></div>
+  <div id="empty">
+    <div class="big">✎</div>
+    <p>载入底图后开始标注。<br>左上角打开图片，或将图片 / .json 拖入此处。<br>
+       <span style="opacity:.7">绘制模式左键打点 · 选择模式拖动顶点 · 右键拖动平移 · 滚轮缩放</span></p>
+  </div>
+  <div id="zoombar">
+    <button id="zoomOut">−</button><span id="zoomVal">100%</span><button id="zoomIn">+</button>
+    <button id="zoomFit" title="适应窗口" style="font-size:12px">适应</button>
+  </div>
+  <div id="status"></div>
+  <div id="toast"></div>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+const main = $("main");
+
+/* ===== 标注类型定义（label 规则 + 几何类型） ===== */
+const TYPES = [
+  {key:"road",      name:"① 道路区域 road",            shape:"polygon",   fields:[],                          label:()=>"road"},
+  {key:"fp",        name:"② 稳定跟踪点 fp",            shape:"polygon",   fields:[{k:"shape",label:"形状",type:"select",opts:["polygon","rectangle"],def:"polygon"}], label:()=>"fp", shapeFrom:f=>f.shape},
+  {key:"length",    name:"③ 基准长度 length",          shape:"line",      fields:[{k:"len",label:"长度(米)",type:"number",def:"28.1"}], label:f=>"length_"+f.len},
+  {key:"x",         name:"④ 坐标轴 x（原点→x方向）",    shape:"line",      fields:[],                          label:()=>"x"},
+  {key:"y",         name:"④ y 轴方向点",               shape:"point",     fields:[],                          label:()=>"y"},
+  {key:"lane",      name:"⑤ 车道 lane",               shape:"polygon",   fields:[{k:"n",label:"编号",type:"number",def:"1"}], label:f=>"lane_"+f.n, inc:"n"},
+  {key:"laneline",  name:"⑦ 车道线 laneline",          shape:"linestrip", fields:[{k:"n",label:"编号",type:"number",def:"1"}], label:f=>"laneline_"+f.n, inc:"n"},
+  {key:"dl_region", name:"⑥a 行驶线-投影区域 region",   shape:"polygon",   fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_region`},
+  {key:"dl_line",   name:"⑥b 行驶线-投影线 line",       shape:"linestrip", fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_line`},
+  {key:"dl_point",  name:"⑥c 行驶线-零点 point",        shape:"point",     fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"},{k:"base",label:"base distance",type:"number",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_point_${f.base}`},
+  {key:"dl_connect",name:"⑥d 行驶线-连接点 connect",    shape:"point",     fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"},{k:"id1",label:"position_id1",def:"0"},{k:"id2",label:"position_id2",def:"1"}], label:f=>`drivingline_${f.name}_${f.pos}_connect_${f.id1}_${f.id2}`},
+  {key:"workzone",  name:"⑧ 施工区 workzone",          shape:"polygon",   fields:[],                          label:()=>"workzone"},
+];
+const SHAPE_HINT = {
+  polygon:  "多边形：左键依次打点，双击 / Enter 闭合（≥3 点）。Backspace 撤销上一点，Esc 取消。",
+  linestrip:"折线：左键依次打点，双击 / Enter 完成（≥2 点）。Backspace 撤销，Esc 取消。",
+  line:     "线段：左键点击 2 个点自动完成（第 1 点为原点 / 起点）。",
+  rectangle:"矩形：左键按住拖动出一个框，松开完成。",
+  point:    "点：左键单击放置一个点。",
+};
+
+/* ===== 状态 ===== */
+let bg = null;                 // 底图 Image
+let imageDataB64 = null;       // 导出用内嵌底图 base64（无前缀）
+let imgW = 900, imgH = 500;
+let shapes = [];               // {label, points:[[x,y]], shape_type}
+let selected = -1;
+let mode = "draw";             // draw | select
+let zoom = 1, panX = 0, panY = 0;
+
+let draft = null;              // 绘制中：{shape, points, label}
+let rectDragging = false;
+let lastImg = [0,0];
+// 选择模式拖拽
+let dragVertex = -1, movingShape = false, moveStart = null, origPts = null;
+
+/* ===== 工具 ===== */
+function screenToImg(clientX, clientY){
+  const r = main.getBoundingClientRect();
+  return [ (clientX - r.left - panX)/zoom, (clientY - r.top - panY)/zoom ];
+}
+function dist(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+function colorFor(label){
+  if(label==="road") return [80,200,120];
+  if(label==="fp") return [120,160,255];
+  if(label.startsWith("length")) return [255,200,0];
+  if(label==="x"||label==="y") return [90,150,255];
+  if(label.startsWith("lane_")) return [88,166,255];
+  if(label.startsWith("laneline")) return [0,210,120];
+  if(label.startsWith("drivingline")) return [220,60,120];
+  if(label.startsWith("workzone")) return [255,140,0];
+  return [150,150,150];
+}
+const rgb = c=>`rgb(${c[0]},${c[1]},${c[2]})`;
+const rgba=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",1800); }
+
+/* ===== 类型面板 ===== */
+function currentType(){ return TYPES.find(t=>t.key===$("typeSel").value); }
+function fieldVals(){
+  const t=currentType(), o={};
+  t.fields.forEach(f=>{ const el=$("f_"+f.k); o[f.k]= el? el.value : f.def; });
+  return o;
+}
+function effectiveShape(){ const t=currentType(); const f=fieldVals(); return t.shapeFrom? t.shapeFrom(f): t.shape; }
+function buildParams(){
+  const t=currentType(), box=$("params"); box.innerHTML="";
+  box.style.display = t.fields.length? "grid":"none";
+  t.fields.forEach(f=>{
+    const wrap=document.createElement("div"); wrap.className="field";
+    const lab=document.createElement("label"); lab.textContent=f.label; wrap.appendChild(lab);
+    let el;
+    if(f.type==="select"){ el=document.createElement("select"); f.opts.forEach(o=>{const op=document.createElement("option");op.value=op.textContent=o;el.appendChild(op);}); }
+    else { el=document.createElement("input"); el.type=f.type==="number"?"number":"text"; }
+    el.id="f_"+f.k; el.value=f.def;
+    el.addEventListener("change",()=>{ updateHint(); cancelDraft(); });
+    wrap.appendChild(el); box.appendChild(wrap);
+  });
+  updateHint();
+}
+function updateHint(){
+  const t=currentType(), shp=effectiveShape(), lbl=t.label(fieldVals());
+  $("drawHint").innerHTML = `将创建 <code>${lbl}</code> <span class="pill">${shp}</span><br>${SHAPE_HINT[shp]}`;
+}
+
+/* ===== 模式 ===== */
+function setMode(m){
+  mode=m; cancelDraft();
+  $("modeDraw").classList.toggle("on", m==="draw");
+  $("modeSelect").classList.toggle("on", m==="select");
+  $("drawPanel").style.opacity = m==="draw"?"1":".5";
+  main.classList.toggle("draw", m==="draw" && !!bg);
+  render();
+}
+
+/* ===== 渲染 ===== */
+function render(){
+  cv.width=imgW; cv.height=imgH;
+  ctx.clearRect(0,0,imgW,imgH);
+  if(bg){ ctx.save(); ctx.filter=`brightness(${$("s_bright").value})`; ctx.drawImage(bg,0,0,imgW,imgH); ctx.restore(); }
+  else { ctx.fillStyle="#000"; ctx.fillRect(0,0,imgW,imgH); }
+  shapes.forEach((s,i)=> drawShape(s, i===selected));
+  if(draft) drawShape(draft, false, true);
+  updateTransform();
+}
+function drawShape(s, sel, isDraft){
+  const col = colorFor(s.label), pts=s.points;
+  if(!pts.length) return;
+  const lw=(sel?3:2)/zoom, r=5/zoom;
+  ctx.lineWidth=lw; ctx.strokeStyle=rgb(col); ctx.fillStyle=rgba(col,0.18);
+  ctx.lineJoin="round"; ctx.setLineDash(isDraft?[8/zoom,5/zoom]:[]);
+  const st=s.shape_type;
+  if(st==="point"){
+    ctx.beginPath(); ctx.arc(pts[0][0],pts[0][1],r*1.4,0,7); ctx.fillStyle=rgb(col); ctx.fill();
+    ctx.lineWidth=2/zoom; ctx.strokeStyle="rgba(0,0,0,.7)"; ctx.stroke();
+  } else if(st==="rectangle"){
+    const [a,b]=pts; ctx.beginPath(); ctx.rect(a[0],a[1],(b[0]-a[0]),(b[1]-a[1]));
+    ctx.fill(); ctx.stroke();
+  } else {
+    ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+    if(isDraft && (st==="polygon"||st==="linestrip"||st==="line")){ ctx.lineTo(lastImg[0],lastImg[1]); }
+    if(st==="polygon"){ if(!isDraft) ctx.closePath(); ctx.fill(); }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // 顶点句柄
+  if(sel || isDraft){
+    const h=4/zoom;
+    ctx.fillStyle="#fff"; ctx.strokeStyle=rgb(col); ctx.lineWidth=1.5/zoom;
+    pts.forEach(p=>{ ctx.beginPath(); ctx.rect(p[0]-h,p[1]-h,h*2,h*2); ctx.fill(); ctx.stroke(); });
+  }
+  // 标签
+  if(!isDraft){
+    const c = st==="point"? pts[0] : centroidish(pts, st);
+    ctx.font=`${13/zoom}px var(--sans)`; ctx.textBaseline="bottom";
+    ctx.lineWidth=3/zoom; ctx.strokeStyle="rgba(0,0,0,.85)"; ctx.strokeText(s.label, c[0]+r, c[1]-r);
+    ctx.fillStyle=rgb(col); ctx.fillText(s.label, c[0]+r, c[1]-r);
+  }
+}
+function centroidish(pts, st){
+  if(st==="rectangle") return [(pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2];
+  let x=0,y=0; pts.forEach(p=>{x+=p[0];y+=p[1];}); return [x/pts.length, y/pts.length];
+}
+function updateTransform(){
+  $("stage").style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;
+  $("zoomVal").textContent=Math.round(zoom*100)+"%";
+}
+function clampZoom(z){ return Math.min(Math.max(z,0.02),16); }
+function zoomAt(cx,cy,f){ const nz=clampZoom(zoom*f); const ix=(cx-panX)/zoom, iy=(cy-panY)/zoom; panX=cx-ix*nz; panY=cy-iy*nz; zoom=nz; updateTransform(); }
+function fitZoom(){ const pad=56; zoom=clampZoom(Math.min((main.clientWidth-pad)/imgW,(main.clientHeight-pad)/imgH,1)); panX=(main.clientWidth-imgW*zoom)/2; panY=(main.clientHeight-imgH*zoom)/2; updateTransform(); }
+
+/* ===== 列表 ===== */
+function refreshList(){
+  const box=$("list"); box.innerHTML=""; $("cnt").textContent=shapes.length;
+  shapes.forEach((s,i)=>{
+    const col=colorFor(s.label);
+    const it=document.createElement("div"); it.className="item"+(i===selected?" sel":"");
+    it.innerHTML=`<span class="sw" style="background:${rgb(col)}"></span>
+      <span class="nm">${s.label}</span><span class="ty">${s.shape_type}</span><span class="del" title="删除">✕</span>`;
+    it.addEventListener("click",e=>{ if(e.target.classList.contains("del")){ shapes.splice(i,1); if(selected===i)selected=-1; refreshList(); render(); updateButtons(); return; }
+      selected=i; setMode("select"); refreshList(); render(); });
+    it.querySelector(".nm").addEventListener("dblclick",e=>{ e.stopPropagation(); const v=prompt("修改 label",s.label); if(v){ s.label=v.trim(); refreshList(); render(); } });
+    box.appendChild(it);
+  });
+}
+function updateButtons(){
+  const has=shapes.length>0, ready=!!bg||!!imageDataB64;
+  $("exportBtn").disabled=!ready; $("exportPng").disabled=!ready;
+  $("clearBtn").disabled=!has;
+}
+
+/* ===== 绘制流程 ===== */
+function startOrAddPoint(p){
+  const t=currentType(), shp=effectiveShape(), label=t.label(fieldVals());
+  if(shp==="point"){ commit({label, points:[p], shape_type:"point"}); return; }
+  if(shp==="rectangle"){ draft={label, points:[p,p.slice()], shape_type:"rectangle"}; rectDragging=true; return; }
+  if(!draft){ draft={label, points:[p], shape_type:shp}; }
+  else draft.points.push(p);
+  if(shp==="line" && draft.points.length>=2){ draft.points=draft.points.slice(0,2); finishDraft(); }
+  render();
+}
+function finishDraft(){
+  if(!draft) return;
+  const st=draft.shape_type, n=draft.points.length;
+  if((st==="polygon"&&n<3)||((st==="linestrip"||st==="line")&&n<2)){ toast("点数不足，已取消"); draft=null; render(); return; }
+  commit(draft); draft=null; rectDragging=false;
+}
+function commit(s){
+  shapes.push(s);
+  const t=currentType();
+  if(t.inc){ const el=$("f_"+t.inc); if(el){ const v=parseInt(el.value); if(!isNaN(v)) el.value=v+1; } updateHint(); }
+  selected=-1; refreshList(); render(); updateButtons();
+}
+function cancelDraft(){ draft=null; rectDragging=false; render(); }
+
+/* ===== 命中测试（选择模式） ===== */
+function pointInPoly(p,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    if(((yi>p[1])!=(yj>p[1])) && (p[0]<(xj-xi)*(p[1]-yi)/((yj-yi)||1e-9)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function nearSeg(p,a,b){
+  const dx=b[0]-a[0],dy=b[1]-a[1],L2=dx*dx+dy*dy;
+  let t=L2? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2 : 0; t=Math.max(0,Math.min(1,t));
+  return dist(p,[a[0]+dx*t,a[1]+dy*t]);
+}
+function hitShape(p){
+  const thr=8/zoom;
+  for(let i=shapes.length-1;i>=0;i--){
+    const s=shapes[i], pts=s.points, st=s.shape_type;
+    if(st==="point"){ if(dist(p,pts[0])<thr*1.6) return i; }
+    else if(st==="rectangle"){ const x1=Math.min(pts[0][0],pts[1][0]),x2=Math.max(pts[0][0],pts[1][0]),y1=Math.min(pts[0][1],pts[1][1]),y2=Math.max(pts[0][1],pts[1][1]); if(p[0]>=x1&&p[0]<=x2&&p[1]>=y1&&p[1]<=y2) return i; }
+    else if(st==="polygon"){ if(pointInPoly(p,pts)) return i; for(let j=0;j<pts.length;j++){ if(nearSeg(p,pts[j],pts[(j+1)%pts.length])<thr) return i; } }
+    else { for(let j=0;j<pts.length-1;j++){ if(nearSeg(p,pts[j],pts[j+1])<thr) return i; } }
+  }
+  return -1;
+}
+function hitVertex(p,si){
+  if(si<0) return -1; const thr=8/zoom, pts=shapes[si].points;
+  for(let i=0;i<pts.length;i++) if(dist(p,pts[i])<thr) return i;
+  return -1;
+}
+
+/* ===== 文件载入 ===== */
+function setImageFromSrc(src, b64){
+  const im=new Image();
+  im.onload=()=>{ bg=im; imgW=im.naturalWidth; imgH=im.naturalHeight; imageDataB64=b64||null;
+    $("empty").style.display="none"; main.classList.toggle("draw",mode==="draw");
+    render(); fitZoom(); updateButtons(); status(); };
+  im.onerror=()=>toast("图片解码失败");
+  im.src=src;
+}
+function handleImageFile(f){
+  const r=new FileReader();
+  r.onload=()=>{ const d=r.result; const b64=d.substring(d.indexOf(",")+1); setImageFromSrc(d,b64); };
+  r.readAsDataURL(f);
+}
+function mimeOf(b64){ if(b64.startsWith("/9j/"))return"image/jpeg"; if(b64.startsWith("iVBOR"))return"image/png"; if(b64.startsWith("R0lGOD"))return"image/gif"; return"image/png"; }
+function inferType(label,pts){
+  if(label==="y") return "point";
+  if(label==="x"||label.startsWith("length")) return "line";
+  if(label.includes("_point_")||label.includes("_connect_")) return "point";
+  if(label.endsWith("_line")||label.startsWith("laneline")) return "linestrip";
+  if(pts.length===2) return "line";
+  return "polygon";
+}
+function handleJSON(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      shapes=(d.shapes||[]).map(s=>({label:s.label, points:s.points.map(p=>[p[0],p[1]]), shape_type:s.shape_type||inferType(s.label,s.points)}));
+      selected=-1; refreshList();
+      if(d.imageData){ imageDataB64=d.imageData; setImageFromSrc("data:"+mimeOf(d.imageData)+";base64,"+d.imageData, d.imageData); }
+      else { if(d.imageWidth) imgW=d.imageWidth; if(d.imageHeight) imgH=d.imageHeight; bg=null; $("empty").style.display="none"; render(); fitZoom(); }
+      updateButtons(); status(); toast(`已载入 ${shapes.length} 个标注`);
+    }catch(e){ toast("JSON 解析失败："+e.message); }
+  };
+  r.readAsText(file,"utf-8");
+}
+function status(){ $("status").textContent=`${imgW}×${imgH}px · ${shapes.length} shapes · ${mode==="draw"?"绘制":"编辑"}`; }
+
+/* ===== 导出 ===== */
+function buildConfig(){
+  return {
+    version:"5.0.1", flags:{},
+    shapes: shapes.map(s=>({label:s.label, points:s.points, group_id:null, description:"",
+      shape_type:s.shape_type, flags:{}})),
+    imagePath:"image.png",
+    imageData: imageDataB64,
+    imageHeight: imgH, imageWidth: imgW
+  };
+}
+function download(name, content, type){
+  const b=new Blob([content],{type}); const a=document.createElement("a");
+  a.href=URL.createObjectURL(b); a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ===== 事件 ===== */
+$("imgInput").addEventListener("change",e=>{ if(e.target.files[0]) handleImageFile(e.target.files[0]); });
+$("jsonInput").addEventListener("change",e=>{ if(e.target.files[0]) handleJSON(e.target.files[0]); });
+$("modeDraw").addEventListener("click",()=>setMode("draw"));
+$("modeSelect").addEventListener("click",()=>setMode("select"));
+$("typeSel").addEventListener("change",()=>{ buildParams(); cancelDraft(); });
+$("s_bright").addEventListener("input",()=>{ $("v_bright").textContent=parseFloat($("s_bright").value).toFixed(2); render(); });
+$("exportBtn").addEventListener("click",()=>{ download("road_config.json", JSON.stringify(buildConfig(),null,2),"application/json"); toast("已导出 road_config.json"); });
+$("exportPng").addEventListener("click",()=>{ cv.toBlob(b=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="annotation.png"; a.click(); },"image/png"); });
+$("clearBtn").addEventListener("click",()=>{ if(confirm("清空全部标注？")){ shapes=[]; selected=-1; cancelDraft(); refreshList(); render(); updateButtons(); } });
+
+$("zoomIn").addEventListener("click",()=>zoomAt(main.clientWidth/2,main.clientHeight/2,1.25));
+$("zoomOut").addEventListener("click",()=>zoomAt(main.clientWidth/2,main.clientHeight/2,1/1.25));
+$("zoomFit").addEventListener("click",fitZoom);
+
+main.addEventListener("wheel",e=>{ if(!bg&&!shapes.length)return; e.preventDefault(); const r=main.getBoundingClientRect(); zoomAt(e.clientX-r.left,e.clientY-r.top, e.deltaY<0?1.12:1/1.12); },{passive:false});
+
+// 平移：右键 / 中键
+let panning=false,sX=0,sY=0,sPX=0,sPY=0;
+main.addEventListener("contextmenu",e=>e.preventDefault());
+main.addEventListener("mousedown",e=>{
+  const p=screenToImg(e.clientX,e.clientY);
+  if(e.button===2||e.button===1){ e.preventDefault(); panning=true; sX=e.clientX;sY=e.clientY;sPX=panX;sPY=panY; main.classList.add("panning"); return; }
+  if(e.button!==0 || (!bg&&!shapes.length)) return;
+  if(mode==="draw"){ startOrAddPoint(p); }
+  else { // select
+    const v=hitVertex(p,selected);
+    if(v>=0){ dragVertex=v; return; }
+    const h=hitShape(p);
+    selected=h; refreshList();
+    if(h>=0){ movingShape=true; moveStart=p; origPts=shapes[h].points.map(q=>q.slice()); }
+    render();
+  }
+});
+window.addEventListener("mousemove",e=>{
+  lastImg=screenToImg(e.clientX,e.clientY);
+  if(panning){ panX=sPX+(e.clientX-sX); panY=sPY+(e.clientY-sY); updateTransform(); return; }
+  if(rectDragging && draft){ draft.points[1]=lastImg.slice(); render(); return; }
+  if(dragVertex>=0 && selected>=0){ shapes[selected].points[dragVertex]=lastImg.slice(); render(); return; }
+  if(movingShape && selected>=0){ const dx=lastImg[0]-moveStart[0], dy=lastImg[1]-moveStart[1]; shapes[selected].points=origPts.map(q=>[q[0]+dx,q[1]+dy]); render(); return; }
+  if(mode==="draw" && draft){ render(); }
+  if(bg) $("status").textContent=`(${lastImg[0].toFixed(0)}, ${lastImg[1].toFixed(0)}) · ${zoom>=1?Math.round(zoom*100)+"%":zoom.toFixed(2)+"x"} · ${shapes.length} shapes`;
+});
+window.addEventListener("mouseup",e=>{
+  if(panning && (e.button===2||e.button===1)){ panning=false; main.classList.remove("panning"); }
+  if(e.button===0){ if(rectDragging){ rectDragging=false; finishDraft(); } dragVertex=-1; movingShape=false; }
+});
+main.addEventListener("dblclick",e=>{ if(mode==="draw" && draft){ e.preventDefault(); finishDraft(); } });
+
+window.addEventListener("keydown",e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if(e.key==="Enter" && draft){ finishDraft(); }
+  else if(e.key==="Escape"){ if(draft) cancelDraft(); else { selected=-1; refreshList(); render(); } }
+  else if(e.key==="Backspace"){ if(draft && draft.points.length>1 && draft.shape_type!=="rectangle"){ e.preventDefault(); draft.points.pop(); render(); } }
+  else if((e.key==="Delete") && selected>=0 && !draft){ shapes.splice(selected,1); selected=-1; refreshList(); render(); updateButtons(); }
+  else if(e.key==="b"||e.key==="B"){ setMode("draw"); }
+  else if(e.key==="v"||e.key==="V"){ setMode("select"); }
+});
+
+// 拖拽载入
+["dragenter","dragover"].forEach(ev=>main.addEventListener(ev,e=>{e.preventDefault();main.classList.add("dragover");}));
+["dragleave","drop"].forEach(ev=>main.addEventListener(ev,e=>{e.preventDefault();main.classList.remove("dragover");}));
+main.addEventListener("drop",e=>{
+  const fs=[...e.dataTransfer.files];
+  const j=fs.find(f=>f.name.endsWith(".json")); if(j){ handleJSON(j); return; }
+  const im=fs.find(f=>f.type.startsWith("image/")); if(im) handleImageFile(im);
+});
+
+/* ===== 初始化 ===== */
+TYPES.forEach(t=>{ const o=document.createElement("option"); o.value=t.key; o.textContent=t.name; $("typeSel").appendChild(o); });
+buildParams();
+setMode("draw");
+</script>
+</body>
+</html>
