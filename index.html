@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Road Config Viewer · 车道编号可视化</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel-2:#1c232d; --line:#2b333d;
+    --ink:#e6edf3; --ink-dim:#8b949e; --accent:#58a6ff; --accent-2:#3fb950;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:var(--sans);background:var(--bg);color:var(--ink);
+    display:grid;grid-template-columns:300px 1fr;height:100vh;overflow:hidden;
+  }
+  /* ---- 控制面板 ---- */
+  aside{
+    background:var(--panel);border-right:1px solid var(--line);
+    padding:18px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;
+  }
+  aside h1{font-size:15px;margin:0;letter-spacing:.3px;font-weight:600}
+  aside h1 small{display:block;color:var(--ink-dim);font-weight:400;font-size:11px;margin-top:3px;font-family:var(--mono)}
+  .group{display:flex;flex-direction:column;gap:9px}
+  .group > .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-dim);font-family:var(--mono)}
+  .file-btn,button.action{
+    appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+    padding:9px 11px;border-radius:7px;font-size:13px;cursor:pointer;text-align:center;
+    transition:border-color .12s,background .12s;font-family:var(--sans);
+  }
+  .file-btn:hover,button.action:hover{border-color:var(--accent);background:#222b36}
+  button.primary{border-color:var(--accent-2);background:#173021;color:#aff0c2}
+  button.primary:hover{background:#1d3d2b}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  input[type=file]{display:none}
+  .toggle{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;user-select:none}
+  .toggle input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+  .toggle .count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+  .slider{display:flex;flex-direction:column;gap:5px}
+  .slider .row{display:flex;justify-content:space-between;font-size:12px}
+  .slider .row b{font-family:var(--mono);font-weight:500;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+  .hint{font-size:11px;color:var(--ink-dim);line-height:1.5}
+  .divider{height:1px;background:var(--line);margin:2px 0}
+  /* ---- 画布区 ---- */
+  main{position:relative;overflow:hidden;background:
+    repeating-conic-gradient(#11151b 0% 25%,#0c0f14 0% 50%) 0/22px 22px;
+    cursor:default}
+  main.panning{cursor:grabbing}
+  #stage{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  canvas{display:block;max-width:none;box-shadow:0 0 0 1px var(--line),0 18px 50px rgba(0,0,0,.5);
+    background:#000;image-rendering:auto}
+  #empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;color:var(--ink-dim);pointer-events:none;text-align:center}
+  #empty .big{font-size:40px;opacity:.35}
+  #empty p{margin:0;font-size:13px;max-width:300px;line-height:1.6}
+  #drop-flash{position:absolute;inset:0;border:2px dashed var(--accent);background:rgba(88,166,255,.08);
+    display:none;align-items:center;justify-content:center;font-size:15px;color:var(--accent)}
+  main.dragover #drop-flash{display:flex}
+  #zoombar{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px}
+  #zoombar button{appearance:none;border:none;background:none;color:var(--ink);cursor:pointer;font-size:15px;
+    width:24px;height:24px;border-radius:5px}
+  #zoombar button:hover{background:var(--panel-2)}
+  #zoombar span{font-family:var(--mono);min-width:46px;text-align:center;color:var(--ink-dim)}
+  #status{position:absolute;right:14px;bottom:14px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;max-width:50%}
+</style>
+</head>
+<body>
+<aside>
+  <h1>Road Config Viewer<small>车道编号可视化 · 静态版</small></h1>
+
+  <div class="group">
+    <label class="file-btn" for="jsonInput">① 打开 road config (.json)</label>
+    <input type="file" id="jsonInput" accept=".json,application/json">
+    <label class="file-btn" for="imgInput">② 可选：单独底图（无内嵌图时）</label>
+    <input type="file" id="imgInput" accept="image/*">
+    <p class="hint">支持把 .json 文件直接拖到右侧画布。若 JSON 内含 <code>imageData</code> 则自动使用内嵌底图。</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <div class="label">图层</div>
+    <label class="toggle"><input type="checkbox" id="t_bg" checked>底图<span class="count" id="c_bg"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_lanes" checked>车道 (laneline 配对 + lane)<span class="count" id="c_lanes"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_lanelines">车道线 (laneline)<span class="count" id="c_lanelines"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_driving" checked>行车线 + 里程<span class="count" id="c_driving"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_axes">坐标轴 (x / y)<span class="count" id="c_axes"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_workzone" checked>施工区 (workzone)<span class="count" id="c_workzone"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_region">检测/稳定/路口区域<span class="count" id="c_region"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_label" checked>显示文字标签</label>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <div class="label">参数</div>
+    <div class="slider">
+      <div class="row"><span>底图亮度</span><b id="v_bright">0.60</b></div>
+      <input type="range" id="s_bright" min="0.1" max="1" step="0.05" value="0.6">
+    </div>
+    <div class="slider">
+      <div class="row"><span>车道填充透明度</span><b id="v_fill">0.25</b></div>
+      <input type="range" id="s_fill" min="0" max="0.8" step="0.02" value="0.25">
+    </div>
+    <div class="slider">
+      <div class="row"><span>字号</span><b id="v_font">1.0</b></div>
+      <input type="range" id="s_font" min="0.4" max="2.5" step="0.1" value="1.0">
+    </div>
+    <div class="slider">
+      <div class="row"><span>线宽</span><b id="v_lw">3</b></div>
+      <input type="range" id="s_lw" min="1" max="8" step="1" value="3">
+    </div>
+    <div class="slider">
+      <div class="row"><span>里程间隔 (m)</span><b id="v_step">50</b></div>
+      <input type="range" id="s_step" min="10" max="200" step="10" value="50">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <button class="action primary" id="saveBtn" disabled>③ 保存为 PNG</button>
+    <button class="action" id="resetBtn" disabled>重置视图</button>
+  </div>
+</aside>
+
+<main id="main">
+  <div id="drop-flash">松开以载入 JSON</div>
+  <div id="stage"><canvas id="cv" width="900" height="500"></canvas></div>
+  <div id="empty">
+    <div class="big">▦</div>
+    <p>载入 road config JSON 后将在此渲染车道编号图。<br>左上角打开文件，或将 .json 拖入此处。<br><span style="opacity:.7">滚轮缩放（以光标为中心）· 按住右键拖动平移</span></p>
+  </div>
+  <div id="zoombar">
+    <button id="zoomOut">−</button><span id="zoomVal">100%</span><button id="zoomIn">+</button>
+    <button id="zoomFit" title="适应窗口" style="font-size:12px">适应</button>
+  </div>
+  <div id="status"></div>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+// 复刻 visualize_config 的颜色表
+const COLORS = [
+  [255,0,0],[0,255,0],[0,200,255],[255,255,0],[255,0,255],[0,128,255]
+];
+const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+const rgba = (c,a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+let cfg = null;        // 解析后的配置
+let bg = null;         // 底图 Image
+let zoom = 1;
+let panX = 0, panY = 0;
+
+/* ---------------- 几何工具 ---------------- */
+function dist(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+
+// 复刻 getFootPoint：点到直线的垂足
+function footPoint(p, l1, l2){
+  const [x0,y0]=p,[x1,y1]=l1,[x2,y2]=l2;
+  const k = -((x1-x0)*(x2-x1)+(y1-y0)*(y2-y1))/(((x2-x1)**2+(y2-y1)**2)||1);
+  return [k*(x2-x1)+x1, k*(y2-y1)+y1];
+}
+
+// 复刻 get_centerpoint：多边形质心
+function centroid(pts){
+  let area=0,x=0,y=0,n=pts.length;
+  for(let i=0;i<n;i++){
+    const [lat,lng]=pts[i];
+    const [lat1,lng1]= i===0 ? pts[n-1] : pts[i-1];
+    const fg=(lat*lng1-lng*lat1)/2;
+    area+=fg; x+=fg*(lat+lat1)/3; y+=fg*(lng+lng1)/3;
+  }
+  if(!area){ // 退化：用算术平均
+    return [pts.reduce((s,p)=>s+p[0],0)/n, pts.reduce((s,p)=>s+p[1],0)/n];
+  }
+  return [x/area, y/area];
+}
+
+/* ---------------- 解析 road config ---------------- */
+function parseConfig(data){
+  const c = {
+    w:data.imageWidth, h:data.imageHeight, imageData:data.imageData||null,
+    lane:{}, laneline:{}, drivingline:{}, intersection:{},
+    fp:[], road:[], workzone:[], lengths:[], xAxis:null, yPoint:null,
+    lpp:null, yVector:null
+  };
+  for(const s of (data.shapes||[])){
+    const lab=s.label, pts=s.points;
+    if(lab==="fp") c.fp.push(pts);
+    else if(lab==="road") c.road.push(pts);
+    else if(lab.startsWith("workzone")) c.workzone.push(pts);
+    else if(lab.startsWith("lane_")) c.lane[parseInt(lab.split("_").pop())]=pts;
+    else if(lab.startsWith("laneline_")) c.laneline[lab]=pts;
+    else if(lab.startsWith("length")){
+      const length=parseFloat(lab.split("_").pop());
+      c.lengths.push(length/dist(pts[0],pts[1]));
+    }
+    else if(lab==="x") c.xAxis={base:pts[0], end:pts[1], vec:[pts[1][0]-pts[0][0],pts[1][1]-pts[0][1]]};
+    else if(lab==="y") c.yPoint=pts[0];
+    else if(lab.startsWith("int")) c.intersection[lab]=pts;
+    else if(lab.startsWith("drivingline")) c.drivingline[lab]=pts;
+  }
+  if(c.lengths.length) c.lpp = c.lengths.reduce((a,b)=>a+b,0)/c.lengths.length;
+  if(c.xAxis && c.yPoint){
+    const fp=footPoint(c.yPoint, c.xAxis.base, c.xAxis.end);
+    c.yVector=[c.yPoint[0]-fp[0], c.yPoint[1]-fp[1]];
+  }
+  return c;
+}
+
+/* ---------------- 绘制各图层 ---------------- */
+function fontPx(){ return 22*parseFloat($("s_font").value); }
+
+function drawLabel(text,x,y,color,align="left"){
+  if(!$("t_label").checked) return;
+  ctx.font=`${fontPx()}px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif`;
+  ctx.textBaseline="middle";
+  ctx.textAlign=align;
+  ctx.lineWidth=Math.max(3,fontPx()/6);
+  ctx.strokeStyle="rgba(0,0,0,.85)";
+  ctx.strokeText(text,x,y);
+  ctx.fillStyle=color;
+  ctx.fillText(text,x,y);
+  ctx.textAlign="left";
+}
+
+// 折线弧长中点：返回总弧长一半处的点（方向无关，稳定落在线段中部）
+function arcMidpoint(pts){
+  if(!pts || !pts.length) return [0,0];
+  if(pts.length===1) return [pts[0][0],pts[0][1]];
+  let total=0;
+  for(let i=0;i<pts.length-1;i++) total+=dist(pts[i],pts[i+1]);
+  const half=total/2; let acc=0;
+  for(let i=0;i<pts.length-1;i++){
+    const seg=dist(pts[i],pts[i+1]);
+    if(acc+seg>=half){
+      const t=seg? (half-acc)/seg : 0;
+      return [pts[i][0]+(pts[i+1][0]-pts[i][0])*t, pts[i][1]+(pts[i+1][1]-pts[i][1])*t];
+    }
+    acc+=seg;
+  }
+  const last=pts[pts.length-1]; return [last[0],last[1]];
+}
+
+function drawLanes(){
+  const fillA=parseFloat($("s_fill").value);
+  const lw=parseInt($("s_lw").value);
+  // —— 由相邻 laneline 配对构造车道多边形 ——
+  const labels=Object.keys(cfg.laneline)
+    .filter(k=>typeof k==="string")
+    .sort((a,b)=>parseInt(a.split("_").pop())-parseInt(b.split("_").pop()));
+  const polys=[];
+  for(let i=0;i<labels.length-1;i++){
+    const a=labels[i],b=labels[i+1];
+    if(Math.abs(parseInt(a.split("_").pop())-parseInt(b.split("_").pop()))===1){
+      polys.push({pts:cfg.laneline[a].concat(cfg.laneline[b].slice().reverse()), name:a,
+                  lineA:cfg.laneline[a], lineB:cfg.laneline[b]});
+    }
+  }
+  polys.forEach((p,idx)=>{
+    const col=COLORS[idx%COLORS.length];
+    ctx.beginPath();
+    p.pts.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));
+    ctx.closePath();
+    ctx.fillStyle=rgba(col,fillA); ctx.fill();
+    ctx.strokeStyle=rgb(col); ctx.lineWidth=lw; ctx.stroke();
+    const mA=arcMidpoint(p.lineA), mB=arcMidpoint(p.lineB);
+    drawLabel(`lane ${p.name.split("_")[1]}`, (mA[0]+mB[0])/2, (mA[1]+mB[1])/2, rgb(col), "center");
+  });
+  // —— lane_N 闭合区域 ——
+  Object.entries(cfg.lane).forEach(([id,pts],i)=>{
+    const col=COLORS[(i+polys.length)%COLORS.length];
+    ctx.beginPath();
+    pts.forEach((q,j)=> j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));
+    ctx.closePath();
+    ctx.fillStyle=rgba(col,fillA); ctx.fill();
+    ctx.strokeStyle=rgb(col); ctx.lineWidth=lw; ctx.stroke();
+    const [cx,cy]=centroid(pts);
+    drawLabel(`lane ${id}`, cx, cy, rgb(col), "center");
+  });
+  return polys.length+Object.keys(cfg.lane).length;
+}
+
+function drawLanelines(){
+  ctx.strokeStyle="rgb(0,200,0)"; ctx.lineWidth=2;
+  let n=0;
+  for(const [id,pts] of Object.entries(cfg.laneline)){
+    ctx.beginPath();
+    pts.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));
+    ctx.stroke();
+    drawLabel(id, pts[0][0], pts[0][1], "rgb(0,255,0)");
+    n++;
+  }
+  return n;
+}
+
+// 折线弧长插值：每 stepM 米取一个里程点（近似原 DrivingLine 的全局里程）
+function drawDrivinglines(){
+  if(!cfg.lpp){ return 0; }
+  const stepM=parseInt($("s_step").value);
+  const stepPx=stepM/cfg.lpp;
+  let n=0;
+  for(const [id,pts] of Object.entries(cfg.drivingline)){
+    if(!id.endsWith("line")) continue;
+    n++;
+    ctx.strokeStyle="rgb(220,30,100)"; ctx.lineWidth=2;
+    ctx.beginPath();
+    pts.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));
+    ctx.stroke();
+    // 构造分段
+    const segs=[]; let total=0;
+    for(let i=0;i<pts.length-1;i++){
+      const dx=pts[i+1][0]-pts[i][0], dy=pts[i+1][1]-pts[i][1], len=Math.hypot(dx,dy);
+      segs.push({x:pts[i][0],y:pts[i][1],dx,dy,len,start:total}); total+=len;
+    }
+    for(let d=0; d<=total; d+=stepPx){
+      let m=null;
+      for(const s of segs){ if(d>=s.start && d<=s.start+s.len){ const t=(d-s.start)/(s.len||1); m=[s.x+s.dx*t, s.y+s.dy*t]; break; } }
+      if(!m) continue;
+      ctx.beginPath(); ctx.arc(m[0],m[1],3,0,7); ctx.fillStyle="#000"; ctx.fill();
+      drawLabel((d*cfg.lpp).toFixed(1), m[0], m[1], "rgb(255,255,255)");
+    }
+  }
+  return n;
+}
+
+// 复刻 _draw_axis：沿轴向量按刻度画主线 + 刻度 + 米标注
+function drawOneAxis(base, vec, lpp, unit=10){
+  const len=Math.hypot(vec[0],vec[1]); if(!len) return;
+  const pxStep=unit/lpp;             // 每个刻度的像素长度
+  const ux=pxStep/len*vec[0], uy=pxStep/len*vec[1];
+  const W=cfg.w,H=cfg.h;
+  const span=Math.max(W,H)/pxStep+2;
+  ctx.strokeStyle="rgb(0,0,255)"; ctx.lineWidth=Math.max(2,parseInt($("s_lw").value));
+  ctx.beginPath();
+  ctx.moveTo(base[0]-span*ux, base[1]-span*uy);
+  ctx.lineTo(base[0]+span*ux, base[1]+span*uy);
+  ctx.stroke();
+  for(const sign of [1,-1]){
+    let i=0;
+    while(true){
+      i++;
+      const x=base[0]+sign*i*ux, y=base[1]+sign*i*uy;
+      if(x<0||x>W||y<0||y>H) break;
+      ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fillStyle="rgb(0,255,0)"; ctx.fill();
+      drawLabel(`${sign*i*unit}`, x-20, y-12, "rgb(255,255,0)");
+    }
+  }
+}
+function drawAxes(){
+  if(!cfg.xAxis || !cfg.lpp) return 0;
+  drawOneAxis(cfg.xAxis.base, cfg.xAxis.vec, cfg.lpp);
+  let n=1;
+  if(cfg.yVector){ drawOneAxis(cfg.xAxis.base, cfg.yVector, cfg.lpp); n=2; }
+  ctx.beginPath(); ctx.arc(cfg.xAxis.base[0],cfg.xAxis.base[1],10,0,7);
+  ctx.fillStyle="rgb(0,255,0)"; ctx.fill();
+  return n;
+}
+
+function drawRegions(){
+  let n=0;
+  const stroke=(pts,col)=>{
+    ctx.beginPath(); pts.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])); ctx.closePath();
+    ctx.fillStyle=rgba(col,0.12); ctx.fill();
+    ctx.strokeStyle=rgb(col); ctx.lineWidth=2; ctx.setLineDash([8,6]); ctx.stroke(); ctx.setLineDash([]);
+  };
+  cfg.road.forEach(p=>{ stroke(p,[80,200,120]); n++; });
+  cfg.fp.forEach(p=>{ stroke(p,[120,160,255]); n++; });
+  Object.entries(cfg.intersection).forEach(([id,p])=>{
+    stroke(p,[255,160,60]);
+    const [cx,cy]=centroid(p); drawLabel(id,cx,cy,"rgb(255,180,90)"); n++;
+  });
+  return n;
+}
+
+function drawWorkzones(){
+  const fillA=Math.max(parseFloat($("s_fill").value),0.18);
+  const lw=parseInt($("s_lw").value);
+  const col=[255,140,0]; // 施工区橙色
+  let n=0;
+  cfg.workzone.forEach(pts=>{
+    ctx.beginPath();
+    pts.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));
+    ctx.closePath();
+    ctx.fillStyle=rgba(col,fillA); ctx.fill();
+    ctx.strokeStyle=rgb(col); ctx.lineWidth=lw; ctx.setLineDash([14,8]); ctx.stroke(); ctx.setLineDash([]);
+    const [cx,cy]=centroid(pts);
+    drawLabel("workzone", cx, cy, rgb(col));
+    n++;
+  });
+  return n;
+}
+
+/* ---------------- 主渲染 ---------------- */
+function render(){
+  if(!cfg) return;
+  const W=cfg.w||(bg?bg.naturalWidth:900), H=cfg.h||(bg?bg.naturalHeight:500);
+  cv.width=W; cv.height=H;
+  ctx.clearRect(0,0,W,H);
+
+  // 底图（按亮度压暗，复刻 convertScaleAbs(alpha=brightness)）
+  if($("t_bg").checked && bg){
+    ctx.save();
+    ctx.filter=`brightness(${$("s_bright").value})`;
+    ctx.drawImage(bg,0,0,W,H);
+    ctx.restore();
+    $("c_bg").textContent="✓";
+  } else { ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); $("c_bg").textContent=""; }
+
+  ctx.lineJoin="round";
+  $("c_lanes").textContent     = $("t_lanes").checked     ? drawLanes()       : "";
+  $("c_lanelines").textContent = $("t_lanelines").checked ? drawLanelines()   : "";
+  $("c_driving").textContent   = $("t_driving").checked   ? drawDrivinglines(): "";
+  $("c_axes").textContent      = $("t_axes").checked      ? drawAxes()        : "";
+  $("c_workzone").textContent  = $("t_workzone").checked  ? drawWorkzones()   : "";
+  $("c_region").textContent    = $("t_region").checked    ? drawRegions()     : "";
+
+  updateTransform();
+}
+
+function updateTransform(){
+  $("stage").style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+  $("zoomVal").textContent = Math.round(zoom*100)+"%";
+}
+function clampZoom(z){ return Math.min(Math.max(z,0.02),16); }
+
+// 以画布中心某点为锚缩放
+function zoomAt(cx, cy, factor){
+  const nz=clampZoom(zoom*factor);
+  // cx,cy 为相对 main 左上角的坐标
+  const contentX=(cx-panX)/zoom, contentY=(cy-panY)/zoom;
+  panX = cx - contentX*nz;
+  panY = cy - contentY*nz;
+  zoom = nz;
+  updateTransform();
+}
+function fitZoom(){
+  const m=$("main");
+  const pad=56;
+  zoom=clampZoom(Math.min((m.clientWidth-pad)/cv.width, (m.clientHeight-pad)/cv.height, 1));
+  panX=(m.clientWidth - cv.width*zoom)/2;
+  panY=(m.clientHeight - cv.height*zoom)/2;
+  updateTransform();
+}
+
+/* ---------------- 文件载入 ---------------- */
+function mimeOf(b64){
+  if(b64.startsWith("/9j/")) return "image/jpeg";
+  if(b64.startsWith("iVBOR")) return "image/png";
+  if(b64.startsWith("R0lGOD")) return "image/gif";
+  return "image/png";
+}
+function loadImageFrom(src, then){
+  const im=new Image();
+  im.onload=()=>{ bg=im; then&&then(); };
+  im.onerror=()=>{ bg=null; then&&then(); $("status").textContent="底图解码失败，使用黑底渲染"; };
+  im.src=src;
+}
+function afterParse(){
+  $("empty").style.display="none";
+  $("saveBtn").disabled=false; $("resetBtn").disabled=false;
+  render(); fitZoom();
+  $("status").textContent=`${cfg.w}×${cfg.h}px · ${cfg.lpp?cfg.lpp.toFixed(4)+" m/px":"无尺度"}`;
+}
+function handleJSON(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      cfg=parseConfig(data);
+      if(cfg.imageData) loadImageFrom("data:"+mimeOf(cfg.imageData)+";base64,"+cfg.imageData, afterParse);
+      else { bg=null; afterParse(); }
+    }catch(e){ $("status").textContent="JSON 解析失败："+e.message; }
+  };
+  r.readAsText(file,"utf-8");
+}
+
+/* ---------------- 事件 ---------------- */
+$("jsonInput").addEventListener("change",e=>{ if(e.target.files[0]) handleJSON(e.target.files[0]); });
+$("imgInput").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  loadImageFrom(URL.createObjectURL(f), ()=>{ if(cfg){ render(); fitZoom(); } });
+});
+
+["t_bg","t_lanes","t_lanelines","t_driving","t_axes","t_workzone","t_region","t_label"].forEach(id=>$(id).addEventListener("change",render));
+[["s_bright","v_bright",2],["s_fill","v_fill",2],["s_font","v_font",1],["s_lw","v_lw",0],["s_step","v_step",0]]
+  .forEach(([s,v,d])=>$(s).addEventListener("input",()=>{ $(v).textContent=parseFloat($(s).value).toFixed(d); render(); }));
+
+$("saveBtn").addEventListener("click",()=>{
+  cv.toBlob(b=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(b);
+    a.download="lane_numbering_diagram.png";
+    a.click();
+  },"image/png");
+});
+$("resetBtn").addEventListener("click",fitZoom);
+$("zoomIn").addEventListener("click",()=>zoomAt($("main").clientWidth/2,$("main").clientHeight/2,1.25));
+$("zoomOut").addEventListener("click",()=>zoomAt($("main").clientWidth/2,$("main").clientHeight/2,1/1.25));
+$("zoomFit").addEventListener("click",fitZoom);
+
+const main=$("main");
+
+// 滚轮缩放（以光标为锚点）
+main.addEventListener("wheel",e=>{
+  if(!cfg) return;
+  e.preventDefault();
+  const r=main.getBoundingClientRect();
+  const factor = e.deltaY<0 ? 1.12 : 1/1.12;
+  zoomAt(e.clientX-r.left, e.clientY-r.top, factor);
+},{passive:false});
+
+// 按住右键平移（中键也支持）
+let panning=false, startX=0, startY=0, startPanX=0, startPanY=0;
+main.addEventListener("contextmenu",e=>e.preventDefault());
+main.addEventListener("mousedown",e=>{
+  if(!cfg || (e.button!==2 && e.button!==1)) return;
+  e.preventDefault();
+  panning=true; startX=e.clientX; startY=e.clientY; startPanX=panX; startPanY=panY;
+  main.classList.add("panning");
+});
+window.addEventListener("mousemove",e=>{
+  if(!panning) return;
+  panX=startPanX+(e.clientX-startX);
+  panY=startPanY+(e.clientY-startY);
+  updateTransform();
+});
+window.addEventListener("mouseup",e=>{
+  if(panning && (e.button===2||e.button===1)){ panning=false; main.classList.remove("panning"); }
+});
+["dragenter","dragover"].forEach(ev=>main.addEventListener(ev,e=>{e.preventDefault();main.classList.add("dragover");}));
+["dragleave","drop"].forEach(ev=>main.addEventListener(ev,e=>{e.preventDefault();main.classList.remove("dragover");}));
+main.addEventListener("drop",e=>{
+  const f=[...e.dataTransfer.files].find(x=>x.name.endsWith(".json"));
+  if(f) handleJSON(f);
+});
+</script>
+</body>
+</html>
