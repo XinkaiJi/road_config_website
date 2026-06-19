@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Road Config Viewer · 车道编号可视化</title>
+<title>Road Config Viewer</title>
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --panel-2:#1c232d; --line:#2b333d;
@@ -24,6 +24,15 @@
   }
   aside h1{font-size:15px;margin:0;letter-spacing:.3px;font-weight:600}
   aside h1 small{display:block;color:var(--ink-dim);font-weight:400;font-size:11px;margin-top:3px;font-family:var(--mono)}
+  aside h1 a{color:var(--accent);text-decoration:none;font-size:11px;display:inline-block;margin-top:4px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .lang-toggle{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:0 0 auto}
+  .lang-toggle button{
+    appearance:none;border:none;background:var(--panel-2);color:var(--ink-dim);
+    padding:5px 8px;font-size:11px;font-family:var(--mono);cursor:pointer
+  }
+  .lang-toggle button+button{border-left:1px solid var(--line)}
+  .lang-toggle button.on{background:#1d2c40;color:var(--accent)}
   .group{display:flex;flex-direction:column;gap:9px}
   .group > .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-dim);font-family:var(--mono)}
   .file-btn,button.action{
@@ -72,53 +81,59 @@
 </head>
 <body>
 <aside>
-  <h1>Road Config Viewer<small>车道编号可视化 · 静态版</small>
-    <a href="editor.html" style="color:#58a6ff;text-decoration:none;font-size:11px;display:inline-block;margin-top:4px">→ 打开 Editor（标注编辑）</a></h1>
+  <div class="header">
+    <h1><span data-i18n="viewerTitle">Road Config Viewer</span><small data-i18n="viewerSubtitle">Lane numbering viewer · static</small>
+      <a href="editor.html" data-i18n="openEditor">Open Editor (annotation editing)</a></h1>
+    <div class="lang-toggle" aria-label="Language">
+      <button type="button" data-lang-btn="en">EN</button>
+      <button type="button" data-lang-btn="zh">中文</button>
+    </div>
+  </div>
 
   <div class="group">
-    <label class="file-btn" for="jsonInput">① 打开 road config (.json)</label>
+    <label class="file-btn" for="jsonInput" data-i18n="openConfig">1. Open road config (.json)</label>
     <input type="file" id="jsonInput" accept=".json,application/json">
-    <label class="file-btn" for="imgInput">② 可选：单独底图（无内嵌图时）</label>
+    <label class="file-btn" for="imgInput" data-i18n="optionalImage">2. Optional base image (when JSON has none)</label>
     <input type="file" id="imgInput" accept="image/*">
-    <p class="hint">支持把 .json 文件直接拖到右侧画布。若 JSON 内含 <code>imageData</code> 则自动使用内嵌底图。</p>
+    <p class="hint" data-i18n-html="loadHint">Drag a .json file onto the canvas. If JSON contains <code>imageData</code>, the embedded base image is used automatically.</p>
   </div>
 
   <div class="divider"></div>
 
   <div class="group">
-    <div class="label">图层</div>
-    <label class="toggle"><input type="checkbox" id="t_bg" checked>底图<span class="count" id="c_bg"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_lanes" checked>车道 (laneline 配对 + lane)<span class="count" id="c_lanes"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_lanelines">车道线 (laneline)<span class="count" id="c_lanelines"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_driving" checked>行车线 + 里程<span class="count" id="c_driving"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_axes">坐标轴 (x / y)<span class="count" id="c_axes"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_workzone" checked>施工区 (workzone)<span class="count" id="c_workzone"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_region">检测/稳定/路口区域<span class="count" id="c_region"></span></label>
-    <label class="toggle"><input type="checkbox" id="t_label" checked>显示文字标签</label>
+    <div class="label" data-i18n="layers">Layers</div>
+    <label class="toggle"><input type="checkbox" id="t_bg" checked><span data-i18n="layerBg">Background</span><span class="count" id="c_bg"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_lanes" checked><span data-i18n="layerLanes">Lanes (laneline pairs + lane)</span><span class="count" id="c_lanes"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_lanelines"><span data-i18n="layerLanelines">Lanelines</span><span class="count" id="c_lanelines"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_driving" checked><span data-i18n="layerDriving">Driving lines + mileage</span><span class="count" id="c_driving"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_axes"><span data-i18n="layerAxes">Axes (x / y)</span><span class="count" id="c_axes"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_workzone" checked><span data-i18n="layerWorkzone">Workzones</span><span class="count" id="c_workzone"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_region"><span data-i18n="layerRegion">Detection / stable / intersection regions</span><span class="count" id="c_region"></span></label>
+    <label class="toggle"><input type="checkbox" id="t_label" checked><span data-i18n="layerLabels">Show text labels</span></label>
   </div>
 
   <div class="divider"></div>
 
   <div class="group">
-    <div class="label">参数</div>
+    <div class="label" data-i18n="params">Parameters</div>
     <div class="slider">
-      <div class="row"><span>底图亮度</span><b id="v_bright">0.60</b></div>
+      <div class="row"><span data-i18n="brightness">Image brightness</span><b id="v_bright">0.60</b></div>
       <input type="range" id="s_bright" min="0.1" max="1" step="0.05" value="0.6">
     </div>
     <div class="slider">
-      <div class="row"><span>车道填充透明度</span><b id="v_fill">0.25</b></div>
+      <div class="row"><span data-i18n="fillOpacity">Lane fill opacity</span><b id="v_fill">0.25</b></div>
       <input type="range" id="s_fill" min="0" max="0.8" step="0.02" value="0.25">
     </div>
     <div class="slider">
-      <div class="row"><span>字号</span><b id="v_font">1.0</b></div>
+      <div class="row"><span data-i18n="fontSize">Font size</span><b id="v_font">1.0</b></div>
       <input type="range" id="s_font" min="0.4" max="2.5" step="0.1" value="1.0">
     </div>
     <div class="slider">
-      <div class="row"><span>线宽</span><b id="v_lw">3</b></div>
+      <div class="row"><span data-i18n="lineWidth">Line width</span><b id="v_lw">3</b></div>
       <input type="range" id="s_lw" min="1" max="8" step="1" value="3">
     </div>
     <div class="slider">
-      <div class="row"><span>里程间隔 (m)</span><b id="v_step">50</b></div>
+      <div class="row"><span data-i18n="mileageStep">Mileage step (m)</span><b id="v_step">50</b></div>
       <input type="range" id="s_step" min="10" max="200" step="10" value="50">
     </div>
   </div>
@@ -126,21 +141,21 @@
   <div class="divider"></div>
 
   <div class="group">
-    <button class="action primary" id="saveBtn" disabled>③ 保存为 PNG</button>
-    <button class="action" id="resetBtn" disabled>重置视图</button>
+    <button class="action primary" id="saveBtn" disabled data-i18n="savePng">3. Save as PNG</button>
+    <button class="action" id="resetBtn" disabled data-i18n="resetView">Reset view</button>
   </div>
 </aside>
 
 <main id="main">
-  <div id="drop-flash">松开以载入 JSON</div>
+  <div id="drop-flash" data-i18n="dropJson">Drop to load JSON</div>
   <div id="stage"><canvas id="cv" width="900" height="500"></canvas></div>
   <div id="empty">
     <div class="big">▦</div>
-    <p>载入 road config JSON 后将在此渲染车道编号图。<br>左上角打开文件，或将 .json 拖入此处。<br><span style="opacity:.7">滚轮缩放（以光标为中心）· 按住右键拖动平移</span></p>
+    <p data-i18n-html="emptyHtml">Load a road config JSON to render the lane numbering diagram here.<br>Open a file from the left, or drop a .json here.<br><span style="opacity:.7">Mouse wheel zooms around the cursor · right-drag to pan</span></p>
   </div>
   <div id="zoombar">
     <button id="zoomOut">−</button><span id="zoomVal">100%</span><button id="zoomIn">+</button>
-    <button id="zoomFit" title="适应窗口" style="font-size:12px">适应</button>
+    <button id="zoomFit" title="Fit to window" data-i18n-title="fitTitle" data-i18n="fit" style="font-size:12px">Fit</button>
   </div>
   <div id="status"></div>
 </main>
@@ -149,6 +164,101 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
+
+const LANG_KEY = "road_config_lang";
+const I18N = {
+  en: {
+    docTitle: "Road Config Viewer",
+    viewerTitle: "Road Config Viewer",
+    viewerSubtitle: "Lane numbering viewer · static",
+    openEditor: "Open Editor (annotation editing)",
+    openConfig: "1. Open road config (.json)",
+    optionalImage: "2. Optional base image (when JSON has none)",
+    loadHint: "Drag a .json file onto the canvas. If JSON contains <code>imageData</code>, the embedded base image is used automatically.",
+    layers: "Layers",
+    layerBg: "Background",
+    layerLanes: "Lanes (laneline pairs + lane)",
+    layerLanelines: "Lanelines",
+    layerDriving: "Driving lines + mileage",
+    layerAxes: "Axes (x / y)",
+    layerWorkzone: "Workzones",
+    layerRegion: "Detection / stable / intersection regions",
+    layerLabels: "Show text labels",
+    params: "Parameters",
+    brightness: "Image brightness",
+    fillOpacity: "Lane fill opacity",
+    fontSize: "Font size",
+    lineWidth: "Line width",
+    mileageStep: "Mileage step (m)",
+    savePng: "3. Save as PNG",
+    resetView: "Reset view",
+    dropJson: "Drop to load JSON",
+    emptyHtml: "Load a road config JSON to render the lane numbering diagram here.<br>Open a file from the left, or drop a .json here.<br><span style=\"opacity:.7\">Mouse wheel zooms around the cursor · right-drag to pan</span>",
+    fitTitle: "Fit to window",
+    fit: "Fit",
+    imageDecodeFailed: "Base image decode failed; rendering on a black background",
+    statusNoScale: "no scale",
+    jsonParseFailed: "JSON parse failed: {message}"
+  },
+  zh: {
+    docTitle: "Road Config Viewer · 车道编号可视化",
+    viewerTitle: "Road Config Viewer",
+    viewerSubtitle: "车道编号可视化 · 静态版",
+    openEditor: "打开 Editor（标注编辑）",
+    openConfig: "1. 打开 road config (.json)",
+    optionalImage: "2. 可选：单独底图（无内嵌图时）",
+    loadHint: "支持把 .json 文件直接拖到右侧画布。若 JSON 内含 <code>imageData</code> 则自动使用内嵌底图。",
+    layers: "图层",
+    layerBg: "底图",
+    layerLanes: "车道 (laneline 配对 + lane)",
+    layerLanelines: "车道线 (laneline)",
+    layerDriving: "行车线 + 里程",
+    layerAxes: "坐标轴 (x / y)",
+    layerWorkzone: "施工区 (workzone)",
+    layerRegion: "检测/稳定/路口区域",
+    layerLabels: "显示文字标签",
+    params: "参数",
+    brightness: "底图亮度",
+    fillOpacity: "车道填充透明度",
+    fontSize: "字号",
+    lineWidth: "线宽",
+    mileageStep: "里程间隔 (m)",
+    savePng: "3. 保存为 PNG",
+    resetView: "重置视图",
+    dropJson: "松开以载入 JSON",
+    emptyHtml: "载入 road config JSON 后将在此渲染车道编号图。<br>左上角打开文件，或将 .json 拖入此处。<br><span style=\"opacity:.7\">滚轮缩放（以光标为中心）· 按住右键拖动平移</span>",
+    fitTitle: "适应窗口",
+    fit: "适应",
+    imageDecodeFailed: "底图解码失败，使用黑底渲染",
+    statusNoScale: "无尺度",
+    jsonParseFailed: "JSON 解析失败：{message}"
+  }
+};
+function savedLang(){
+  try{ return localStorage.getItem(LANG_KEY); }catch(e){ return null; }
+}
+let uiLang = savedLang()==="zh" ? "zh" : "en";
+function tr(key, vars={}){
+  const source = I18N[uiLang] || I18N.en;
+  const fallback = I18N.en[key] || key;
+  return (source[key] || fallback).replace(/\{(\w+)\}/g, (_, k)=> vars[k] ?? "");
+}
+function applyI18n(){
+  document.documentElement.lang = uiLang==="zh" ? "zh-CN" : "en";
+  document.title = tr("docTitle");
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = tr(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>{ el.innerHTML = tr(el.dataset.i18nHtml); });
+  document.querySelectorAll("[data-i18n-title]").forEach(el=>{ el.title = tr(el.dataset.i18nTitle); });
+  document.querySelectorAll("[data-lang-btn]").forEach(btn=>btn.classList.toggle("on", btn.dataset.langBtn===uiLang));
+}
+function setLanguage(lang){
+  uiLang = lang==="zh" ? "zh" : "en";
+  try{ localStorage.setItem(LANG_KEY, uiLang); }catch(e){}
+  applyI18n();
+  updateStatus();
+}
+document.querySelectorAll("[data-lang-btn]").forEach(btn=>btn.addEventListener("click",()=>setLanguage(btn.dataset.langBtn)));
+applyI18n();
 
 // 复刻 visualize_config 的颜色表
 const COLORS = [
@@ -464,14 +574,18 @@ function mimeOf(b64){
 function loadImageFrom(src, then){
   const im=new Image();
   im.onload=()=>{ bg=im; then&&then(); };
-  im.onerror=()=>{ bg=null; then&&then(); $("status").textContent="底图解码失败，使用黑底渲染"; };
+  im.onerror=()=>{ bg=null; then&&then(); $("status").textContent=tr("imageDecodeFailed"); };
   im.src=src;
+}
+function updateStatus(){
+  if(!cfg) return;
+  $("status").textContent=`${cfg.w}×${cfg.h}px · ${cfg.lpp?cfg.lpp.toFixed(4)+" m/px":tr("statusNoScale")}`;
 }
 function afterParse(){
   $("empty").style.display="none";
   $("saveBtn").disabled=false; $("resetBtn").disabled=false;
   render(); fitZoom();
-  $("status").textContent=`${cfg.w}×${cfg.h}px · ${cfg.lpp?cfg.lpp.toFixed(4)+" m/px":"无尺度"}`;
+  updateStatus();
 }
 function handleJSON(file){
   const r=new FileReader();
@@ -481,7 +595,7 @@ function handleJSON(file){
       cfg=parseConfig(data);
       if(cfg.imageData) loadImageFrom("data:"+mimeOf(cfg.imageData)+";base64,"+cfg.imageData, afterParse);
       else { bg=null; afterParse(); }
-    }catch(e){ $("status").textContent="JSON 解析失败："+e.message; }
+    }catch(e){ $("status").textContent=tr("jsonParseFailed",{message:e.message}); }
   };
   r.readAsText(file,"utf-8");
 }

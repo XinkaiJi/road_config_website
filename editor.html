@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Road Config Editor · 标注编辑器</title>
+<title>Road Config Editor</title>
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --panel-2:#1c232d; --line:#2b333d;
@@ -23,7 +23,15 @@
   }
   aside h1{font-size:15px;margin:0;letter-spacing:.3px;font-weight:600}
   aside h1 small{display:block;color:var(--ink-dim);font-weight:400;font-size:11px;margin-top:3px;font-family:var(--mono)}
-  aside h1 a{color:var(--accent);text-decoration:none;font-size:11px}
+  aside h1 a{color:var(--accent);text-decoration:none;font-size:11px;display:inline-block;margin-top:4px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .lang-toggle{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:0 0 auto}
+  .lang-toggle button{
+    appearance:none;border:none;background:var(--panel-2);color:var(--ink-dim);
+    padding:5px 8px;font-size:11px;font-family:var(--mono);cursor:pointer
+  }
+  .lang-toggle button+button{border-left:1px solid var(--line)}
+  .lang-toggle button.on{background:#1d2c40;color:var(--accent)}
   .group{display:flex;flex-direction:column;gap:9px}
   .group > .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-dim);font-family:var(--mono)}
   .file-btn,button.action{
@@ -93,29 +101,35 @@
 </head>
 <body>
 <aside>
-  <h1>Road Config Editor<small>标注编辑器 · 静态版</small>
-    <a href="index.html">→ 打开 Viewer</a></h1>
+  <div class="header">
+    <h1><span data-i18n="editorTitle">Road Config Editor</span><small data-i18n="editorSubtitle">Annotation editor · static</small>
+      <a href="index.html" data-i18n="openViewer">Open Viewer</a></h1>
+    <div class="lang-toggle" aria-label="Language">
+      <button type="button" data-lang-btn="en">EN</button>
+      <button type="button" data-lang-btn="zh">中文</button>
+    </div>
+  </div>
 
   <div class="group">
-    <label class="file-btn" for="imgInput">① 打开底图 (image)</label>
+    <label class="file-btn" for="imgInput" data-i18n="openImage">1. Open base image</label>
     <input type="file" id="imgInput" accept="image/*">
-    <label class="file-btn" for="jsonInput">② 可选：载入已有 config (.json) 继续编辑</label>
+    <label class="file-btn" for="jsonInput" data-i18n="openExisting">2. Optional: load existing config (.json)</label>
     <input type="file" id="jsonInput" accept=".json,application/json">
-    <p class="hint">也可把图片或 .json 直接拖入右侧画布。导出的 JSON 会内嵌底图，可直接在 Viewer 中打开。</p>
+    <p class="hint" data-i18n="loadHint">You can also drop an image or .json onto the canvas. Exported JSON embeds the base image and opens directly in Viewer.</p>
   </div>
 
   <div class="divider"></div>
 
   <div class="group">
-    <div class="label">模式</div>
+    <div class="label" data-i18n="mode">Mode</div>
     <div class="mode-tabs">
-      <button id="modeDraw" class="on">✏ 绘制 (B)</button>
-      <button id="modeSelect">🖱 选择/编辑 (V)</button>
+      <button id="modeDraw" class="on" data-i18n="drawMode">Draw (B)</button>
+      <button id="modeSelect" data-i18n="selectMode">Select / edit (V)</button>
     </div>
   </div>
 
   <div class="group" id="drawPanel">
-    <div class="label">标注类型</div>
+    <div class="label" data-i18n="annotationType">Annotation type</div>
     <select id="typeSel"></select>
     <div id="params" class="row2"></div>
     <div class="hint" id="drawHint"></div>
@@ -124,7 +138,7 @@
   <div class="divider"></div>
 
   <div class="group">
-    <div class="label">已标注 <span class="pill" id="cnt">0</span></div>
+    <div class="label"><span data-i18n="annotations">Annotations</span> <span class="pill" id="cnt">0</span></div>
     <div id="list"></div>
   </div>
 
@@ -132,28 +146,28 @@
 
   <div class="group">
     <div class="slider">
-      <div class="row"><span>底图亮度</span><b id="v_bright">1.00</b></div>
+      <div class="row"><span data-i18n="brightness">Image brightness</span><b id="v_bright">1.00</b></div>
       <input type="range" id="s_bright" min="0.1" max="1" step="0.05" value="1">
     </div>
-    <button class="action primary" id="exportBtn" disabled>导出 road config (.json)</button>
+    <button class="action primary" id="exportBtn" disabled data-i18n="exportConfig">Export road config (.json)</button>
     <div class="row2">
-      <button class="action" id="exportPng" disabled>导出 PNG</button>
-      <button class="action danger" id="clearBtn" disabled>清空标注</button>
+      <button class="action" id="exportPng" disabled data-i18n="exportPng">Export PNG</button>
+      <button class="action danger" id="clearBtn" disabled data-i18n="clearAnnotations">Clear annotations</button>
     </div>
   </div>
 </aside>
 
 <main id="main">
-  <div id="drop-flash">松开以载入</div>
+  <div id="drop-flash" data-i18n="dropLoad">Drop to load</div>
   <div id="stage"><canvas id="cv" width="900" height="500"></canvas></div>
   <div id="empty">
     <div class="big">✎</div>
-    <p>载入底图后开始标注。<br>左上角打开图片，或将图片 / .json 拖入此处。<br>
-       <span style="opacity:.7">绘制模式左键打点 · 选择模式拖动顶点 · 右键拖动平移 · 滚轮缩放</span></p>
+    <p data-i18n-html="emptyHtml">Load a base image to start annotating.<br>Open an image from the left, or drop an image / .json here.<br>
+       <span style="opacity:.7">Draw mode: left-click to add points · Select mode: drag vertices · right-drag to pan · wheel to zoom</span></p>
   </div>
   <div id="zoombar">
     <button id="zoomOut">−</button><span id="zoomVal">100%</span><button id="zoomIn">+</button>
-    <button id="zoomFit" title="适应窗口" style="font-size:12px">适应</button>
+    <button id="zoomFit" title="Fit to window" data-i18n-title="fitTitle" data-i18n="fit" style="font-size:12px">Fit</button>
   </div>
   <div id="status"></div>
   <div id="toast"></div>
@@ -165,28 +179,182 @@ const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 const main = $("main");
 
+const LANG_KEY = "road_config_lang";
+const I18N = {
+  en: {
+    docTitle: "Road Config Editor",
+    editorTitle: "Road Config Editor",
+    editorSubtitle: "Annotation editor · static",
+    openViewer: "Open Viewer",
+    openImage: "1. Open base image",
+    openExisting: "2. Optional: load existing config (.json)",
+    loadHint: "You can also drop an image or .json onto the canvas. Exported JSON embeds the base image and opens directly in Viewer.",
+    mode: "Mode",
+    drawMode: "Draw (B)",
+    selectMode: "Select / edit (V)",
+    annotationType: "Annotation type",
+    annotations: "Annotations",
+    brightness: "Image brightness",
+    exportConfig: "Export road config (.json)",
+    exportPng: "Export PNG",
+    clearAnnotations: "Clear annotations",
+    dropLoad: "Drop to load",
+    emptyHtml: "Load a base image to start annotating.<br>Open an image from the left, or drop an image / .json here.<br><span style=\"opacity:.7\">Draw mode: left-click to add points · Select mode: drag vertices · right-drag to pan · wheel to zoom</span>",
+    fitTitle: "Fit to window",
+    fit: "Fit",
+    typeRoad: "1. Road region road",
+    typeFp: "2. Stable tracking region fp",
+    typeLength: "3. Reference length",
+    typeX: "4. x axis (origin to x direction)",
+    typeY: "4. y axis direction point",
+    typeLane: "5. Lane",
+    typeLaneline: "7. Laneline",
+    typeDlRegion: "6a. Driving line projection region",
+    typeDlLine: "6b. Driving line projection line",
+    typeDlPoint: "6c. Driving line zero point",
+    typeDlConnect: "6d. Driving line connection point",
+    typeWorkzone: "8. Workzone",
+    typeCustom: "Custom (choose shape + name)",
+    fieldShape: "Shape",
+    fieldLengthMeters: "Length (m)",
+    fieldNumber: "Number",
+    fieldLineName: "Line name",
+    fieldPositionId: "Position ID",
+    fieldBaseDistance: "Base distance",
+    fieldPositionId1: "Position ID 1",
+    fieldPositionId2: "Position ID 2",
+    shapeHintPolygon: "Polygon: left-click points in order, double-click / Enter to close (3+ points). Backspace removes the last point; Esc cancels.",
+    shapeHintLinestrip: "Polyline: left-click points in order, double-click / Enter to finish (2+ points). Backspace removes the last point; Esc cancels.",
+    shapeHintLine: "Line: left-click two points to finish automatically (first point is origin / start).",
+    shapeHintRectangle: "Rectangle: left-drag to draw a box, release to finish.",
+    shapeHintPoint: "Point: left-click to place one point.",
+    hintCustom: "Custom <span class=\"pill\">{shape}</span> · enter a name after drawing<br>{hint}",
+    hintCreate: "Will create <code>{label}</code> <span class=\"pill\">{shape}</span><br>{hint}",
+    deleteTitle: "Delete",
+    promptEditLabel: "Edit label",
+    insufficientPoints: "Not enough points; canceled",
+    promptCustomLabel: "Enter annotation name (label)",
+    imageDecodeFailed: "Image decode failed",
+    loadedAnnotations: "Loaded {count} annotations",
+    jsonParseFailed: "JSON parse failed: {message}",
+    modeDrawShort: "draw",
+    modeEditShort: "edit",
+    shapeUnit: "shapes",
+    exportConfigDone: "Exported road_config.json",
+    clearConfirm: "Clear all annotations?"
+  },
+  zh: {
+    docTitle: "Road Config Editor · 标注编辑器",
+    editorTitle: "Road Config Editor",
+    editorSubtitle: "标注编辑器 · 静态版",
+    openViewer: "打开 Viewer",
+    openImage: "1. 打开底图 (image)",
+    openExisting: "2. 可选：载入已有 config (.json) 继续编辑",
+    loadHint: "也可把图片或 .json 直接拖入右侧画布。导出的 JSON 会内嵌底图，可直接在 Viewer 中打开。",
+    mode: "模式",
+    drawMode: "绘制 (B)",
+    selectMode: "选择/编辑 (V)",
+    annotationType: "标注类型",
+    annotations: "已标注",
+    brightness: "底图亮度",
+    exportConfig: "导出 road config (.json)",
+    exportPng: "导出 PNG",
+    clearAnnotations: "清空标注",
+    dropLoad: "松开以载入",
+    emptyHtml: "载入底图后开始标注。<br>左上角打开图片，或将图片 / .json 拖入此处。<br><span style=\"opacity:.7\">绘制模式左键打点 · 选择模式拖动顶点 · 右键拖动平移 · 滚轮缩放</span>",
+    fitTitle: "适应窗口",
+    fit: "适应",
+    typeRoad: "1. 道路区域 road",
+    typeFp: "2. 稳定跟踪点 fp",
+    typeLength: "3. 基准长度 length",
+    typeX: "4. 坐标轴 x（原点→x方向）",
+    typeY: "4. y 轴方向点",
+    typeLane: "5. 车道 lane",
+    typeLaneline: "7. 车道线 laneline",
+    typeDlRegion: "6a. 行驶线-投影区域 region",
+    typeDlLine: "6b. 行驶线-投影线 line",
+    typeDlPoint: "6c. 行驶线-零点 point",
+    typeDlConnect: "6d. 行驶线-连接点 connect",
+    typeWorkzone: "8. 施工区 workzone",
+    typeCustom: "自定义（自选形状 + 命名）",
+    fieldShape: "形状",
+    fieldLengthMeters: "长度(米)",
+    fieldNumber: "编号",
+    fieldLineName: "line name",
+    fieldPositionId: "position_id",
+    fieldBaseDistance: "base distance",
+    fieldPositionId1: "position_id1",
+    fieldPositionId2: "position_id2",
+    shapeHintPolygon: "多边形：左键依次打点，双击 / Enter 闭合（≥3 点）。Backspace 撤销上一点，Esc 取消。",
+    shapeHintLinestrip: "折线：左键依次打点，双击 / Enter 完成（≥2 点）。Backspace 撤销，Esc 取消。",
+    shapeHintLine: "线段：左键点击 2 个点自动完成（第 1 点为原点 / 起点）。",
+    shapeHintRectangle: "矩形：左键按住拖动出一个框，松开完成。",
+    shapeHintPoint: "点：左键单击放置一个点。",
+    hintCustom: "自定义 <span class=\"pill\">{shape}</span> · 绘制完成后输入名称（类似 labelme）<br>{hint}",
+    hintCreate: "将创建 <code>{label}</code> <span class=\"pill\">{shape}</span><br>{hint}",
+    deleteTitle: "删除",
+    promptEditLabel: "修改 label",
+    insufficientPoints: "点数不足，已取消",
+    promptCustomLabel: "输入标注名称 (label)",
+    imageDecodeFailed: "图片解码失败",
+    loadedAnnotations: "已载入 {count} 个标注",
+    jsonParseFailed: "JSON 解析失败：{message}",
+    modeDrawShort: "绘制",
+    modeEditShort: "编辑",
+    shapeUnit: "个标注",
+    exportConfigDone: "已导出 road_config.json",
+    clearConfirm: "清空全部标注？"
+  }
+};
+function savedLang(){
+  try{ return localStorage.getItem(LANG_KEY); }catch(e){ return null; }
+}
+let uiLang = savedLang()==="zh" ? "zh" : "en";
+function tr(key, vars={}){
+  const source = I18N[uiLang] || I18N.en;
+  const fallback = I18N.en[key] || key;
+  return (source[key] || fallback).replace(/\{(\w+)\}/g, (_, k)=> vars[k] ?? "");
+}
+function applyI18n(){
+  document.documentElement.lang = uiLang==="zh" ? "zh-CN" : "en";
+  document.title = tr("docTitle");
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = tr(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>{ el.innerHTML = tr(el.dataset.i18nHtml); });
+  document.querySelectorAll("[data-i18n-title]").forEach(el=>{ el.title = tr(el.dataset.i18nTitle); });
+  document.querySelectorAll("[data-lang-btn]").forEach(btn=>btn.classList.toggle("on", btn.dataset.langBtn===uiLang));
+  buildTypeOptions();
+  buildParams();
+  refreshList();
+  if(bg || shapes.length) status();
+}
+function setLanguage(lang){
+  uiLang = lang==="zh" ? "zh" : "en";
+  try{ localStorage.setItem(LANG_KEY, uiLang); }catch(e){}
+  applyI18n();
+}
+
 /* ===== 标注类型定义（label 规则 + 几何类型） ===== */
 const TYPES = [
-  {key:"road",      name:"① 道路区域 road",            shape:"polygon",   fields:[],                          label:()=>"road"},
-  {key:"fp",        name:"② 稳定跟踪点 fp",            shape:"polygon",   fields:[{k:"shape",label:"形状",type:"select",opts:["polygon","rectangle"],def:"polygon"}], label:()=>"fp", shapeFrom:f=>f.shape},
-  {key:"length",    name:"③ 基准长度 length",          shape:"line",      fields:[{k:"len",label:"长度(米)",type:"number",def:"28.1"}], label:f=>"length_"+f.len},
-  {key:"x",         name:"④ 坐标轴 x（原点→x方向）",    shape:"line",      fields:[],                          label:()=>"x"},
-  {key:"y",         name:"④ y 轴方向点",               shape:"point",     fields:[],                          label:()=>"y"},
-  {key:"lane",      name:"⑤ 车道 lane",               shape:"polygon",   fields:[{k:"n",label:"编号",type:"number",def:"1"}], label:f=>"lane_"+f.n, inc:"n"},
-  {key:"laneline",  name:"⑦ 车道线 laneline",          shape:"linestrip", fields:[{k:"n",label:"编号",type:"number",def:"1"}], label:f=>"laneline_"+f.n, inc:"n"},
-  {key:"dl_region", name:"⑥a 行驶线-投影区域 region",   shape:"polygon",   fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_region`},
-  {key:"dl_line",   name:"⑥b 行驶线-投影线 line",       shape:"linestrip", fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_line`},
-  {key:"dl_point",  name:"⑥c 行驶线-零点 point",        shape:"point",     fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"},{k:"base",label:"base distance",type:"number",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_point_${f.base}`},
-  {key:"dl_connect",name:"⑥d 行驶线-连接点 connect",    shape:"point",     fields:[{k:"name",label:"line name",def:"main"},{k:"pos",label:"position_id",def:"0"},{k:"id1",label:"position_id1",def:"0"},{k:"id2",label:"position_id2",def:"1"}], label:f=>`drivingline_${f.name}_${f.pos}_connect_${f.id1}_${f.id2}`},
-  {key:"workzone",  name:"⑧ 施工区 workzone",          shape:"polygon",   fields:[],                          label:()=>"workzone"},
-  {key:"custom",    name:"⊕ 自定义（自选形状 + 命名）",  shape:"polygon",   fields:[{k:"shape",label:"形状",type:"select",opts:["polygon","linestrip","line","rectangle","point"],def:"polygon"}], label:()=>"", shapeFrom:f=>f.shape, custom:true},
+  {key:"road",      nameKey:"typeRoad",      shape:"polygon",   fields:[],                          label:()=>"road"},
+  {key:"fp",        nameKey:"typeFp",        shape:"polygon",   fields:[{k:"shape",labelKey:"fieldShape",type:"select",opts:["polygon","rectangle"],def:"polygon"}], label:()=>"fp", shapeFrom:f=>f.shape},
+  {key:"length",    nameKey:"typeLength",    shape:"line",      fields:[{k:"len",labelKey:"fieldLengthMeters",type:"number",def:"28.1"}], label:f=>"length_"+f.len},
+  {key:"x",         nameKey:"typeX",         shape:"line",      fields:[],                          label:()=>"x"},
+  {key:"y",         nameKey:"typeY",         shape:"point",     fields:[],                          label:()=>"y"},
+  {key:"lane",      nameKey:"typeLane",      shape:"polygon",   fields:[{k:"n",labelKey:"fieldNumber",type:"number",def:"1"}], label:f=>"lane_"+f.n, inc:"n"},
+  {key:"laneline",  nameKey:"typeLaneline",  shape:"linestrip", fields:[{k:"n",labelKey:"fieldNumber",type:"number",def:"1"}], label:f=>"laneline_"+f.n, inc:"n"},
+  {key:"dl_region", nameKey:"typeDlRegion",  shape:"polygon",   fields:[{k:"name",labelKey:"fieldLineName",def:"main"},{k:"pos",labelKey:"fieldPositionId",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_region`},
+  {key:"dl_line",   nameKey:"typeDlLine",    shape:"linestrip", fields:[{k:"name",labelKey:"fieldLineName",def:"main"},{k:"pos",labelKey:"fieldPositionId",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_line`},
+  {key:"dl_point",  nameKey:"typeDlPoint",   shape:"point",     fields:[{k:"name",labelKey:"fieldLineName",def:"main"},{k:"pos",labelKey:"fieldPositionId",def:"0"},{k:"base",labelKey:"fieldBaseDistance",type:"number",def:"0"}], label:f=>`drivingline_${f.name}_${f.pos}_point_${f.base}`},
+  {key:"dl_connect",nameKey:"typeDlConnect", shape:"point",     fields:[{k:"name",labelKey:"fieldLineName",def:"main"},{k:"pos",labelKey:"fieldPositionId",def:"0"},{k:"id1",labelKey:"fieldPositionId1",def:"0"},{k:"id2",labelKey:"fieldPositionId2",def:"1"}], label:f=>`drivingline_${f.name}_${f.pos}_connect_${f.id1}_${f.id2}`},
+  {key:"workzone",  nameKey:"typeWorkzone",  shape:"polygon",   fields:[],                          label:()=>"workzone"},
+  {key:"custom",    nameKey:"typeCustom",    shape:"polygon",   fields:[{k:"shape",labelKey:"fieldShape",type:"select",opts:["polygon","linestrip","line","rectangle","point"],def:"polygon"}], label:()=>"", shapeFrom:f=>f.shape, custom:true},
 ];
-const SHAPE_HINT = {
-  polygon:  "多边形：左键依次打点，双击 / Enter 闭合（≥3 点）。Backspace 撤销上一点，Esc 取消。",
-  linestrip:"折线：左键依次打点，双击 / Enter 完成（≥2 点）。Backspace 撤销，Esc 取消。",
-  line:     "线段：左键点击 2 个点自动完成（第 1 点为原点 / 起点）。",
-  rectangle:"矩形：左键按住拖动出一个框，松开完成。",
-  point:    "点：左键单击放置一个点。",
+const SHAPE_HINT_KEYS = {
+  polygon: "shapeHintPolygon",
+  linestrip: "shapeHintLinestrip",
+  line: "shapeHintLine",
+  rectangle: "shapeHintRectangle",
+  point: "shapeHintPoint",
 };
 
 /* ===== 状态 ===== */
@@ -227,6 +395,18 @@ const rgba=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",1800); }
 
 /* ===== 类型面板 ===== */
+function buildTypeOptions(){
+  const sel=$("typeSel");
+  const current=sel.value || TYPES[0].key;
+  sel.innerHTML="";
+  TYPES.forEach(t=>{
+    const o=document.createElement("option");
+    o.value=t.key;
+    o.textContent=tr(t.nameKey);
+    sel.appendChild(o);
+  });
+  sel.value = TYPES.some(t=>t.key===current) ? current : TYPES[0].key;
+}
 function currentType(){ return TYPES.find(t=>t.key===$("typeSel").value); }
 function fieldVals(){
   const t=currentType(), o={};
@@ -235,15 +415,18 @@ function fieldVals(){
 }
 function effectiveShape(){ const t=currentType(); const f=fieldVals(); return t.shapeFrom? t.shapeFrom(f): t.shape; }
 function buildParams(){
-  const t=currentType(), box=$("params"); box.innerHTML="";
+  const t=currentType(), box=$("params");
+  const oldVals={};
+  t.fields.forEach(f=>{ const old=$("f_"+f.k); if(old) oldVals[f.k]=old.value; });
+  box.innerHTML="";
   box.style.display = t.fields.length? "grid":"none";
   t.fields.forEach(f=>{
     const wrap=document.createElement("div"); wrap.className="field";
-    const lab=document.createElement("label"); lab.textContent=f.label; wrap.appendChild(lab);
+    const lab=document.createElement("label"); lab.textContent=tr(f.labelKey); wrap.appendChild(lab);
     let el;
     if(f.type==="select"){ el=document.createElement("select"); f.opts.forEach(o=>{const op=document.createElement("option");op.value=op.textContent=o;el.appendChild(op);}); }
     else { el=document.createElement("input"); el.type=f.type==="number"?"number":"text"; }
-    el.id="f_"+f.k; el.value=f.def;
+    el.id="f_"+f.k; el.value=oldVals[f.k] ?? f.def;
     el.addEventListener("change",()=>{ updateHint(); cancelDraft(); });
     wrap.appendChild(el); box.appendChild(wrap);
   });
@@ -251,11 +434,12 @@ function buildParams(){
 }
 function updateHint(){
   const t=currentType(), shp=effectiveShape();
+  const hint=tr(SHAPE_HINT_KEYS[shp]);
   if(t.custom){
-    $("drawHint").innerHTML = `自定义 <span class="pill">${shp}</span> · 绘制完成后输入名称（类似 labelme）<br>${SHAPE_HINT[shp]}`;
+    $("drawHint").innerHTML = tr("hintCustom",{shape:shp,hint});
     return;
   }
-  $("drawHint").innerHTML = `将创建 <code>${t.label(fieldVals())}</code> <span class="pill">${shp}</span><br>${SHAPE_HINT[shp]}`;
+  $("drawHint").innerHTML = tr("hintCreate",{label:t.label(fieldVals()),shape:shp,hint});
 }
 
 /* ===== 模式 ===== */
@@ -266,6 +450,7 @@ function setMode(m){
   $("drawPanel").style.opacity = m==="draw"?"1":".5";
   main.classList.toggle("draw", m==="draw" && !!bg);
   render();
+  if(bg || shapes.length) status();
 }
 
 /* ===== 渲染 ===== */
@@ -331,10 +516,10 @@ function refreshList(){
     const col=colorFor(s.label);
     const it=document.createElement("div"); it.className="item"+(i===selected?" sel":"");
     it.innerHTML=`<span class="sw" style="background:${rgb(col)}"></span>
-      <span class="nm">${s.label}</span><span class="ty">${s.shape_type}</span><span class="del" title="删除">✕</span>`;
+      <span class="nm">${s.label}</span><span class="ty">${s.shape_type}</span><span class="del" title="${tr("deleteTitle")}">✕</span>`;
     it.addEventListener("click",e=>{ if(e.target.classList.contains("del")){ shapes.splice(i,1); if(selected===i)selected=-1; refreshList(); render(); updateButtons(); return; }
       selected=i; setMode("select"); refreshList(); render(); });
-    it.querySelector(".nm").addEventListener("dblclick",e=>{ e.stopPropagation(); const v=prompt("修改 label",s.label); if(v){ s.label=v.trim(); refreshList(); render(); } });
+    it.querySelector(".nm").addEventListener("dblclick",e=>{ e.stopPropagation(); const v=prompt(tr("promptEditLabel"),s.label); if(v){ s.label=v.trim(); refreshList(); render(); } });
     box.appendChild(it);
   });
 }
@@ -357,13 +542,13 @@ function startOrAddPoint(p){
 function finishDraft(){
   if(!draft) return;
   const st=draft.shape_type, n=draft.points.length;
-  if((st==="polygon"&&n<3)||((st==="linestrip"||st==="line")&&n<2)){ toast("点数不足，已取消"); draft=null; render(); return; }
+  if((st==="polygon"&&n<3)||((st==="linestrip"||st==="line")&&n<2)){ toast(tr("insufficientPoints")); draft=null; render(); return; }
   commit(draft); draft=null; rectDragging=false;
 }
 function commit(s){
   const t=currentType();
   if(t.custom){
-    const name=prompt("输入标注名称 (label)", lastCustomLabel);
+    const name=prompt(tr("promptCustomLabel"), lastCustomLabel);
     if(name===null || name.trim()===""){ render(); return; }   // 取消则放弃
     s.label=name.trim(); lastCustomLabel=s.label;
   }
@@ -410,7 +595,7 @@ function setImageFromSrc(src, b64){
   im.onload=()=>{ bg=im; imgW=im.naturalWidth; imgH=im.naturalHeight; imageDataB64=b64||null;
     $("empty").style.display="none"; main.classList.toggle("draw",mode==="draw");
     render(); fitZoom(); updateButtons(); status(); };
-  im.onerror=()=>toast("图片解码失败");
+  im.onerror=()=>toast(tr("imageDecodeFailed"));
   im.src=src;
 }
 function handleImageFile(f){
@@ -436,12 +621,12 @@ function handleJSON(file){
       selected=-1; refreshList();
       if(d.imageData){ imageDataB64=d.imageData; setImageFromSrc("data:"+mimeOf(d.imageData)+";base64,"+d.imageData, d.imageData); }
       else { if(d.imageWidth) imgW=d.imageWidth; if(d.imageHeight) imgH=d.imageHeight; bg=null; $("empty").style.display="none"; render(); fitZoom(); }
-      updateButtons(); status(); toast(`已载入 ${shapes.length} 个标注`);
-    }catch(e){ toast("JSON 解析失败："+e.message); }
+      updateButtons(); status(); toast(tr("loadedAnnotations",{count:shapes.length}));
+    }catch(e){ toast(tr("jsonParseFailed",{message:e.message})); }
   };
   r.readAsText(file,"utf-8");
 }
-function status(){ $("status").textContent=`${imgW}×${imgH}px · ${shapes.length} shapes · ${mode==="draw"?"绘制":"编辑"}`; }
+function status(){ $("status").textContent=`${imgW}×${imgH}px · ${shapes.length} ${tr("shapeUnit")} · ${mode==="draw"?tr("modeDrawShort"):tr("modeEditShort")}`; }
 
 /* ===== 导出 ===== */
 function buildConfig(){
@@ -466,9 +651,9 @@ $("modeDraw").addEventListener("click",()=>setMode("draw"));
 $("modeSelect").addEventListener("click",()=>setMode("select"));
 $("typeSel").addEventListener("change",()=>{ buildParams(); cancelDraft(); });
 $("s_bright").addEventListener("input",()=>{ $("v_bright").textContent=parseFloat($("s_bright").value).toFixed(2); render(); });
-$("exportBtn").addEventListener("click",()=>{ download("road_config.json", JSON.stringify(buildConfig(),null,2),"application/json"); toast("已导出 road_config.json"); });
+$("exportBtn").addEventListener("click",()=>{ download("road_config.json", JSON.stringify(buildConfig(),null,2),"application/json"); toast(tr("exportConfigDone")); });
 $("exportPng").addEventListener("click",()=>{ cv.toBlob(b=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="annotation.png"; a.click(); },"image/png"); });
-$("clearBtn").addEventListener("click",()=>{ if(confirm("清空全部标注？")){ shapes=[]; selected=-1; cancelDraft(); refreshList(); render(); updateButtons(); } });
+$("clearBtn").addEventListener("click",()=>{ if(confirm(tr("clearConfirm"))){ shapes=[]; selected=-1; cancelDraft(); refreshList(); render(); updateButtons(); } });
 
 $("zoomIn").addEventListener("click",()=>zoomAt(main.clientWidth/2,main.clientHeight/2,1.25));
 $("zoomOut").addEventListener("click",()=>zoomAt(main.clientWidth/2,main.clientHeight/2,1/1.25));
@@ -500,7 +685,7 @@ window.addEventListener("mousemove",e=>{
   if(dragVertex>=0 && selected>=0){ shapes[selected].points[dragVertex]=lastImg.slice(); render(); return; }
   if(movingShape && selected>=0){ const dx=lastImg[0]-moveStart[0], dy=lastImg[1]-moveStart[1]; shapes[selected].points=origPts.map(q=>[q[0]+dx,q[1]+dy]); render(); return; }
   if(mode==="draw" && draft){ render(); }
-  if(bg) $("status").textContent=`(${lastImg[0].toFixed(0)}, ${lastImg[1].toFixed(0)}) · ${zoom>=1?Math.round(zoom*100)+"%":zoom.toFixed(2)+"x"} · ${shapes.length} shapes`;
+  if(bg) $("status").textContent=`(${lastImg[0].toFixed(0)}, ${lastImg[1].toFixed(0)}) · ${zoom>=1?Math.round(zoom*100)+"%":zoom.toFixed(2)+"x"} · ${shapes.length} ${tr("shapeUnit")}`;
 });
 window.addEventListener("mouseup",e=>{
   if(panning && (e.button===2||e.button===1)){ panning=false; main.classList.remove("panning"); }
@@ -528,8 +713,8 @@ main.addEventListener("drop",e=>{
 });
 
 /* ===== 初始化 ===== */
-TYPES.forEach(t=>{ const o=document.createElement("option"); o.value=t.key; o.textContent=t.name; $("typeSel").appendChild(o); });
-buildParams();
+document.querySelectorAll("[data-lang-btn]").forEach(btn=>btn.addEventListener("click",()=>setLanguage(btn.dataset.langBtn)));
+applyI18n();
 setMode("draw");
 </script>
 </body>
